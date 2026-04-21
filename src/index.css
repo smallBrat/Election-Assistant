@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* Bright, Warm Educational Palette */
+  --bg-primary: #FCFAF8;       /* Creamy off-white canvas */
+  --bg-secondary: #F7F4EF;     /* Soft beige/ivory for cards */
+  
+  --text-primary: #33312E;     /* Dark brown-grey / charcoal */
+  --text-muted: #6B6863;       /* Accessible medium warm grey */
+  
+  --heading-slate: #3A4E6B;    /* Muted indigo for headings */
+  
+  --accent-primary: #DD6E48;   /* Warm, muted orange */
+  --accent-primary-hover: #C55E3A;
+  
+  --accent-secondary: #5C80A6; /* Dusty blue */
+  --accent-secondary-hover: #4A6C91;
+  
+  --accent-success: #7A9A70;   /* Muted olive/green */
+  --accent-success-bg: #F0F4EF;
+  
+  --accent-warning: #DE9A4B;
+  --accent-warning-bg: #FBF4ED;
+
+  --border-light: #EBE5DB;     /* Subtle beige border */
+  --border-medium: #D6CEC1;
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Soft elevation */
+  --shadow-sm: 0 2px 8px rgba(58, 49, 43, 0.04);
+  --shadow-md: 0 8px 24px rgba(58, 49, 43, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  /* We will heavily restrict dark mode since the request explicitly states "do not use a dark theme".
+     Forcing the light warm theme to remain consistent. */
+  :root {
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Nunito', sans-serif;
+  color: var(--heading-slate);
+  line-height: 1.3;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+h1 { font-size: 2.5rem; letter-spacing: -0.02em; }
+h2 { font-size: 1.85rem; letter-spacing: -0.01em; margin-bottom: 1.5rem; }
+h3 { font-size: 1.35rem; }
+h4 { font-size: 1.15rem; }
+
+p {
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+  max-width: 75ch; /* Comfortable reading width */
+}
+
+a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent-secondary-hover);
+  border-bottom-color: var(--accent-secondary-hover);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Layout Utilities */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    flex-direction: row;
+  }
+}
+
+.main-content {
+  flex: 1;
+  padding: 3.5rem 2.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.page-section {
+  animation: fadeIn 0.4s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Educational Cards */
+.card, .panel {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panel-hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Notice Blocks */
+.notice-block {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  border: 1px solid var(--border-light);
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.notice-warning {
+  background: var(--accent-warning-bg);
+  border-color: rgba(222, 154, 75, 0.3);
+}
+
+.notice-success {
+  background: var(--accent-success-bg);
+  border-color: rgba(122, 154, 112, 0.3);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(221, 110, 72, 0.2);
+}
+
+.btn-primary:hover {
+  background: var(--accent-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(221, 110, 72, 0.3);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-muted);
+}
+
+.btn-accent {
+  background: var(--accent-secondary);
+  color: #fff;
+}
+
+.btn-accent:hover {
+  background: var(--accent-secondary-hover);
+}
+
+.btn-icon {
+  padding: 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background-color: var(--border-light);
+  margin: 2rem 0;
+  width: 100%;
+}
+
+/* Form inputs */
+input, textarea {
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  background: #FFF;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 0 3px rgba(92, 128, 166, 0.15);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Utilities */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-col { display: flex; flex-direction: column; }
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-8 { margin-top: 2rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-8 { margin-bottom: 2rem; }
+.w-full { width: 100%; }
+.text-center { text-align: center; }
+.text-muted { color: var(--text-muted); }
+.text-success { color: var(--accent-success); }

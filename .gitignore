@@ -1,0 +1,44 @@
+# ── Dependencies ────────────────────────────────────────────
+node_modules/
+
+# ── Build Output ─────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+
+# ── Environment Variables ─────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Editor / OS Files ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.suo
+*.sln
+*.sw?
+*.ntvs*
+*.njsproj
+
+# ── VS Code (keep only shared settings) ─────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ── JetBrains IDEs ───────────────────────────────────────────
+.idea/
+
+# ── Vite Cache ───────────────────────────────────────────────
+.vite/
+*.local
+
+# ── TypeScript Build Info ────────────────────────────────────
+*.tsbuildinfo
