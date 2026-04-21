@@ -3,7 +3,11 @@ import { useProgress } from '../../context/ProgressContext';
 import { faqData } from '../../data/mockData';
 import { ChevronDown, ChevronUp, Search, CheckCircle2 } from 'lucide-react';
 
-export const FAQ: React.FC = () => {
+interface FAQProps {
+  faqItems?: typeof faqData;
+}
+
+export const FAQ: React.FC<FAQProps> = ({ faqItems = faqData }) => {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const { markCompleted, completedSections } = useProgress();
@@ -12,8 +16,8 @@ export const FAQ: React.FC = () => {
     markCompleted('faq');
   }, [markCompleted]);
 
-  const filteredFaqs = faqData.filter(faq => 
-    faq.question.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredFaqs = faqItems.filter((faq) =>
+    faq.question.toLowerCase().includes(search.toLowerCase()) ||
     faq.answer.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -33,13 +37,14 @@ export const FAQ: React.FC = () => {
 
       <div style={{ position: 'relative', marginBottom: '2.5rem' }}>
         <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-secondary)' }} />
-        <input 
-          type="text" 
-          placeholder="Search for a question..." 
+        <input
+          aria-label="Search frequently asked questions"
+          type="text"
+          placeholder="Search for a question..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ 
-            width: '100%', padding: '1rem 1rem 1rem 3.5rem', 
+          style={{
+            width: '100%', padding: '1rem 1rem 1rem 3.5rem',
             borderRadius: 'var(--radius-full)', border: '1px solid var(--border-medium)',
             background: '#FFF', color: 'var(--text-primary)'
           }}
@@ -50,27 +55,33 @@ export const FAQ: React.FC = () => {
         {filteredFaqs.length > 0 ? filteredFaqs.map((faq, idx) => {
           const isExpanded = expandedId === idx;
           return (
-            <div 
-              key={idx} 
-              className="panel" 
-              style={{ 
-                cursor: 'pointer', 
-                padding: '1.5rem', 
+            <div
+              key={idx}
+              className="panel"
+              style={{
+                padding: '1.5rem',
                 background: isExpanded ? '#FFF' : 'var(--bg-secondary)',
                 border: isExpanded ? '1px solid var(--border-medium)' : '1px solid var(--border-light)',
                 boxShadow: isExpanded ? 'var(--shadow-md)' : 'none',
                 transition: 'all 0.2s ease'
               }}
-              onClick={() => setExpandedId(isExpanded ? null : idx)}
             >
-              <div className="flex-between">
-                <h3 style={{ margin: 0, fontSize: '1.15rem', color: isExpanded ? 'var(--accent-secondary)' : 'var(--heading-slate)',     transition: 'color 0.2s ease' }}>
-                  {faq.question}
-                </h3>
-                {isExpanded ? <ChevronUp size={20} color="var(--accent-secondary)" /> : <ChevronDown size={20} color="var(--text-muted)" />}
-              </div>
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                aria-controls={`faq-answer-${idx}`}
+                onClick={() => setExpandedId(isExpanded ? null : idx)}
+                style={{ width: '100%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                <div className="flex-between">
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: isExpanded ? 'var(--accent-secondary)' : 'var(--heading-slate)', transition: 'color 0.2s ease' }}>
+                    {faq.question}
+                  </h3>
+                  {isExpanded ? <ChevronUp size={20} color="var(--accent-secondary)" /> : <ChevronDown size={20} color="var(--text-muted)" />}
+                </div>
+              </button>
               {isExpanded && (
-                <div style={{ margin: '1.25rem 0 0 0', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)', animation: 'fadeIn 0.3s ease' }}>
+                <div id={`faq-answer-${idx}`} style={{ margin: '1.25rem 0 0 0', paddingTop: '1.25rem', borderTop: '1px solid var(--border-light)', animation: 'fadeIn 0.3s ease' }}>
                   <p className="text-primary" style={{ margin: 0, lineHeight: '1.7' }}>
                     {faq.answer}
                   </p>

@@ -29,7 +29,7 @@ The platform is designed to be:
 | ✅ **Election Day Checklist** | An interactive, printable personal readiness checklist |
 | ❓ **FAQ** | A searchable accordion of common questions and answers |
 | 📚 **Glossary** | Card-based definitions of key election terminology |
-| 💬 **Support Desk** | A guided Q&A chat interface for quick civic questions |
+| 💬 **Ask the Assistant** | A Gemini-powered Q&A interface for quick civic questions |
 | 🧠 **Self-Check Quiz** | A 5-question quiz with explanations to test your knowledge |
 | 📈 **Progress Tracker** | Sidebar progress bar tracking how many sections you've visited |
 
@@ -45,6 +45,7 @@ The platform is designed to be:
 | **Icons** | Lucide React |
 | **State** | React Context API + `localStorage` persistence |
 | **Fonts** | Nunito (headings) + Inter (body) via Google Fonts |
+| **Google Services** | Gemini API, Cloud Run, Cloud Build, Cloud Logging |
 
 ---
 
@@ -77,13 +78,41 @@ The app will be running at **http://localhost:5173/**
 npm run build
 ```
 
-Output will be in the `dist/` folder, ready to deploy to any static hosting service (Netlify, Vercel, GitHub Pages, etc.).
+Output will be in the `dist/` folder, ready to deploy to static hosting or to the Cloud Run container included in this repository.
 
 ### Preview Production Build
 
 ```bash
 npm run preview
 ```
+
+---
+
+## 🧪 Testing
+
+The app uses Vitest and React Testing Library for unit, component, and integration-style coverage.
+
+- `npm run test` runs the suite once in jsdom.
+- `npm run test:coverage` generates coverage output and enforces the configured thresholds.
+- Coverage and setup live in `vite.config.ts` and `src/test/`.
+
+Key coverage areas include navigation, progress tracking, quiz flow, FAQ/glossary search, checklist toggles, and the Gemini assistant success/fallback paths.
+
+See [TESTING.md](TESTING.md) for the full testing guide.
+
+---
+
+## ☁️ Google Services Integration
+
+The assistant is backed by Gemini through a Cloud Run endpoint that reads `GEMINI_API_KEY` at runtime. The UI calls `/api/assistant`, and the server adds a neutral civic-education system prompt before forwarding the request to Gemini.
+
+- Cloud Run serves the production container and captures logs automatically in Cloud Logging.
+- Cloud Build can run tests, build the container, and deploy the app on push to `main`.
+- Assistant failures fall back to a local educational answer so the app remains usable even if Gemini is temporarily unavailable.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for build, deploy, and logging steps.
+
+See [SECURITY.md](SECURITY.md) for API key handling and prompt-safety notes.
 
 ---
 

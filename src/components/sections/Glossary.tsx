@@ -3,7 +3,11 @@ import { useProgress } from '../../context/ProgressContext';
 import { glossaryData } from '../../data/mockData';
 import { Search, CheckCircle2, BookOpen } from 'lucide-react';
 
-export const Glossary: React.FC = () => {
+interface GlossaryProps {
+  glossaryItems?: typeof glossaryData;
+}
+
+export const Glossary: React.FC<GlossaryProps> = ({ glossaryItems = glossaryData }) => {
   const [search, setSearch] = useState('');
   const { markCompleted, completedSections } = useProgress();
 
@@ -11,8 +15,8 @@ export const Glossary: React.FC = () => {
     markCompleted('glossary');
   }, [markCompleted]);
 
-  const filteredTerms = glossaryData.filter(item => 
-    item.term.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredTerms = glossaryItems.filter(item =>
+    item.term.toLowerCase().includes(search.toLowerCase()) ||
     item.definition.toLowerCase().includes(search.toLowerCase())
   ).sort((a, b) => a.term.localeCompare(b.term));
 
@@ -32,13 +36,14 @@ export const Glossary: React.FC = () => {
 
       <div style={{ position: 'relative', marginBottom: '3rem' }}>
         <Search size={20} style={{ position: 'absolute', left: '1.25rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-secondary)' }} />
-        <input 
-          type="text" 
-          placeholder="Search for a term..." 
+        <input
+          aria-label="Search glossary terms"
+          type="text"
+          placeholder="Search for a term..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ 
-            width: '100%', padding: '1rem 1rem 1rem 3.5rem', 
+          style={{
+            width: '100%', padding: '1rem 1rem 1rem 3.5rem',
             borderRadius: 'var(--radius-full)', border: '1px solid var(--border-medium)',
             background: '#FFF', color: 'var(--text-primary)'
           }}
@@ -47,7 +52,7 @@ export const Glossary: React.FC = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
         {filteredTerms.length > 0 ? filteredTerms.map((item, idx) => (
-          <div key={idx} className="panel panel-hoverable" style={{ 
+          <div key={idx} className="panel panel-hoverable" style={{
             display: 'flex', flexDirection: 'column',
             background: '#FFF'
           }}>

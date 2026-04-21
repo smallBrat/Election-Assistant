@@ -70,7 +70,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentSection, onNaviga
             return (
               <li key={item.id}>
                 <button
+                  type="button"
                   className={`nav-button ${currentSection === item.id ? 'active' : ''}`}
+                  aria-current={currentSection === item.id ? 'page' : undefined}
                   onClick={() => {
                     onNavigate(item.id as SectionKey);
                     setMobileOpen(false);

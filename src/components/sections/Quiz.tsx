@@ -3,7 +3,11 @@ import { useProgress } from '../../context/ProgressContext';
 import { quizData } from '../../data/mockData';
 import { CheckCircle2, RotateCcw, Lightbulb } from 'lucide-react';
 
-export const Quiz: React.FC = () => {
+interface QuizProps {
+  questions?: typeof quizData;
+}
+
+export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
   const { markCompleted, completedSections } = useProgress();
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -21,13 +25,13 @@ export const Quiz: React.FC = () => {
     if (isAnswered) return;
     setSelectedOption(idx);
     setIsAnswered(true);
-    if (idx === quizData[currentQ].correctAnswer) {
+    if (idx === questions[currentQ].correctAnswer) {
       setScore(prev => prev + 1);
     }
   };
 
   const handleNext = () => {
-    if (currentQ < quizData.length - 1) {
+    if (currentQ < questions.length - 1) {
       setCurrentQ(prev => prev + 1);
       setSelectedOption(null);
       setIsAnswered(false);
@@ -55,11 +59,11 @@ export const Quiz: React.FC = () => {
           <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', margin: '2rem 0' }}>
             <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.5rem 0' }}>Your Final Score</p>
             <p style={{ fontSize: '4rem', margin: 0, fontWeight: 700, color: 'var(--accent-primary)' }}>
-              {score} <span style={{ fontSize: '2rem', color: 'var(--text-muted)' }}>/ {quizData.length}</span>
+              {score} <span style={{ fontSize: '2rem', color: 'var(--text-muted)' }}>/ {questions.length}</span>
             </p>
           </div>
           <div className="flex-center gap-4">
-            <button className="btn btn-secondary" onClick={handleRetry} style={{ border: 'none', background: 'var(--bg-primary)' }}>
+            <button className="btn btn-secondary" type="button" onClick={handleRetry} style={{ border: 'none', background: 'var(--bg-primary)' }}>
               <RotateCcw size={18} /> Try Again
             </button>
           </div>
@@ -68,7 +72,7 @@ export const Quiz: React.FC = () => {
     );
   }
 
-  const question = quizData[currentQ];
+  const question = questions[currentQ];
 
   return (
     <div className="page-section" style={{ maxWidth: '850px', margin: '0 auto' }}>
@@ -87,20 +91,20 @@ export const Quiz: React.FC = () => {
       <div className="mb-6">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Question {currentQ + 1} of {quizData.length}
+            Question {currentQ + 1} of {questions.length}
           </span>
           <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--accent-primary)' }}>
             Score: {score}
           </span>
         </div>
         <div style={{ width: '100%', height: '8px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-full)' }}>
-          <div style={{ width: `${((currentQ + 1) / quizData.length) * 100}%`, height: '100%', background: 'var(--accent-primary)', borderRadius: 'var(--radius-full)', transition: 'width 0.4s ease' }} />
+          <div style={{ width: `${((currentQ + 1) / questions.length) * 100}%`, height: '100%', background: 'var(--accent-primary)', borderRadius: 'var(--radius-full)', transition: 'width 0.4s ease' }} />
         </div>
       </div>
 
       <div className="panel" style={{ padding: '3rem', background: '#FFF' }}>
         <h3 style={{ fontSize: '1.5rem', marginBottom: '2.5rem', color: 'var(--heading-slate)', lineHeight: '1.4' }}>{question.question}</h3>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {question.options.map((opt, idx) => {
             let bg = 'var(--bg-primary)';
@@ -121,17 +125,18 @@ export const Quiz: React.FC = () => {
                 bg = 'var(--bg-primary)';
               }
             } else if (idx === selectedOption) {
-                bg = 'var(--bg-secondary)';
-                border = '1px solid var(--accent-secondary)';
+              bg = 'var(--bg-secondary)';
+              border = '1px solid var(--accent-secondary)';
             }
 
             return (
-              <button 
-                key={idx} 
+              <button
+                key={idx}
+                type="button"
                 onClick={() => handleSelect(idx)}
-                style={{ 
-                  padding: '1.25rem 1.5rem', borderRadius: 'var(--radius-md)', 
-                  background: bg, border, color, 
+                style={{
+                  padding: '1.25rem 1.5rem', borderRadius: 'var(--radius-md)',
+                  background: bg, border, color,
                   textAlign: 'left', fontSize: '1.1rem', cursor: isAnswered ? 'default' : 'pointer',
                   transition: 'all 0.2s ease'
                 }}
@@ -154,8 +159,8 @@ export const Quiz: React.FC = () => {
             </h4>
             <p className="text-primary" style={{ margin: 0, lineHeight: '1.6' }}>{question.explanation}</p>
             <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" onClick={handleNext}>
-                {currentQ < quizData.length - 1 ? 'Next Question' : 'See Results'}
+              <button className="btn btn-primary" type="button" onClick={handleNext}>
+                {currentQ < questions.length - 1 ? 'Next Question' : 'See Results'}
               </button>
             </div>
           </div>

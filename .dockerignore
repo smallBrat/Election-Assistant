@@ -1,0 +1,33 @@
+# ── Dependencies (rebuilt inside container) ─────────────
+node_modules/
+
+# ── Previous build output (rebuilt inside container) ────
+dist/
+dist-ssr/
+coverage/
+
+# ── Git history (not needed in image) ───────────────────
+.git/
+.gitignore
+
+# ── Environment / secrets ───────────────────────────────
+.env
+.env.*
+
+# ── Logs ────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Editor / OS junk ────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# ── TypeScript cache ────────────────────────────────────
+*.tsbuildinfo
+
+# ── Docs (not needed in image) ──────────────────────────
+README.md
