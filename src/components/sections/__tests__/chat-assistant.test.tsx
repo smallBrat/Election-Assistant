@@ -19,6 +19,7 @@ describe('ChatAssistant', () => {
   });
 
   it('falls back locally when Gemini is unavailable', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const assistantService = vi.fn().mockRejectedValue(new Error('network error'));
 
     renderWithProviders(<ChatAssistant assistantService={assistantService} />);
@@ -30,5 +31,6 @@ describe('ChatAssistant', () => {
 
     expect(await screen.findByText(/gemini is temporarily unavailable/i)).toBeInTheDocument();
     expect(screen.getByText(/you should carry an accepted form of identification/i)).toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

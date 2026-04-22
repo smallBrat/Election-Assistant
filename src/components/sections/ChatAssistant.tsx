@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProgress } from '../../context/ProgressContext';
 import { Send, User, Headphones, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
 import { askElectionAssistant, type AssistantHistoryMessage } from '../../services/assistant';
@@ -22,17 +22,10 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     markCompleted('chat');
   }, [markCompleted]);
-
-  useEffect(() => {
-    if (typeof messagesEndRef.current?.scrollIntoView === 'function') {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
 
   const toHistory = (items: ChatMessage[]): AssistantHistoryMessage[] => (
     items.map((item) => ({
@@ -125,7 +118,6 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
               </div>
             </div>
           ))}
-          <div ref={messagesEndRef} />
         </div>
 
         <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-light)', background: '#FFF' }}>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 type SectionKey = 'timeline' | 'guide' | 'registration' | 'documents' | 'checklist' | 'faq' | 'glossary' | 'chat' | 'quiz' | 'guided';
 
@@ -44,19 +44,30 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('electionEduProgress', JSON.stringify(completedSections));
   }, [completedSections]);
 
-  const markCompleted = (section: SectionKey) => {
-    setCompletedSections(prev => ({
-      ...prev,
-      [section]: true
-    }));
-  };
+  const markCompleted = useCallback((section: SectionKey) => {
+    setCompletedSections(prev => {
+      if (prev[section]) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [section]: true,
+      };
+    });
+  }, []);
 
   const totalSections = Object.keys(completedSections).length;
   const completedCount = Object.values(completedSections).filter(Boolean).length;
   const progressPercentage = Math.round((completedCount / totalSections) * 100);
+  const contextValue = useMemo(() => ({
+    completedSections,
+    markCompleted,
+    progressPercentage,
+  }), [completedSections, markCompleted, progressPercentage]);
 
   return (
-    <ProgressContext.Provider value={{ completedSections, markCompleted, progressPercentage }}>
+    <ProgressContext.Provider value={contextValue}>
       {children}
     </ProgressContext.Provider>
   );

@@ -18,7 +18,15 @@ describe('Quiz', () => {
     }
 
     expect(screen.getByText(/great job finishing the quiz/i)).toBeInTheDocument();
-    expect(screen.getByText(/5 /i)).toBeInTheDocument();
-    expect(screen.getByText(/completed/i)).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) => {
+        if (!element || element.tagName.toLowerCase() !== 'p') {
+          return false;
+        }
+
+        return element.textContent?.replace(/\s+/g, ' ').includes('5 / 5') ?? false;
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });

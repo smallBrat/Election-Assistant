@@ -77,7 +77,7 @@ describe('core sections', () => {
 
     renderWithProviders(<ElectionTimeline />);
 
-    await user.click(screen.getByRole('button', { name: /election announcement/i }));
-    expect(screen.getByText(/the official date of the election is declared/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /voter registration period/i }));
+    expect(screen.getByText(/citizens must register or update their details/i)).toBeInTheDocument();
   });
 });
