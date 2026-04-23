@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
@@ -7,6 +8,8 @@ const port = Number(process.env.PORT || 8080);
 const project = process.env.GOOGLE_CLOUD_PROJECT;
 const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
 const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const mockAiMode = String(process.env.MOCK_AI || '').toLowerCase() === 'true';
+const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || '';
 const vertexModelBaseUrl = project
   ? `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models`
   : `https://${location}-aiplatform.googleapis.com/v1/projects/_/locations/${location}/publishers/google/models`;
@@ -22,6 +25,51 @@ const systemInstructionText = [
 
 function logEvent(severity, event, details = {}) {
   console.log(JSON.stringify({ severity, event, timestamp: new Date().toISOString(), ...details }));
+}
+
+function getCredentialsDiagnostics(credentialsFilePath) {
+  if (!credentialsFilePath) {
+    return {
+      credentialsPathSet: false,
+      credentialsFileExists: false,
+      credentialsIsFile: false,
+      credentialsReadable: false,
+    };
+  }
+
+  const diagnostics = {
+    credentialsPathSet: true,
+    credentialsFileExists: false,
+    credentialsIsFile: false,
+    credentialsReadable: false,
+  };
+
+  try {
+    diagnostics.credentialsFileExists = fs.existsSync(credentialsFilePath);
+
+    if (diagnostics.credentialsFileExists) {
+      const stats = fs.statSync(credentialsFilePath);
+      diagnostics.credentialsIsFile = stats.isFile();
+
+      if (diagnostics.credentialsIsFile) {
+        fs.accessSync(credentialsFilePath, fs.constants.R_OK);
+        diagnostics.credentialsReadable = true;
+      }
+    }
+  } catch (_error) {
+    diagnostics.credentialsReadable = false;
+  }
+
+  return diagnostics;
+}
+
+function getMockAssistantResponse(message) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('register') || normalized.includes('registration')) {
+    return 'Voter registration is the process of adding your name and details to the official voter list before the deadline. You typically submit an application, provide valid identification details, and then confirm your registration status with your local election authority.';
+  }
+
+  return 'Elections usually follow a sequence: voter registration, publication of candidate lists, campaigning, voting day, counting, and results. Rules vary by region, so always confirm official steps with your local election authority.';
 }
 
 function getFallbackResponse(message) {
@@ -108,6 +156,18 @@ app.post('/api/chat', async (req, res) => {
   }
 
   const userMessage = message.trim();
+
+  if (mockAiMode) {
+    logEvent('INFO', 'chat.mock_success', {
+      project,
+      model: modelName,
+      location,
+      mockAiMode,
+    });
+    res.json({ text: getMockAssistantResponse(userMessage) });
+    return;
+  }
+
   const contents = [
     ...normalizeHistory(history),
     {
@@ -156,14 +216,24 @@ app.post('/api/chat', async (req, res) => {
 
     res.json({ text });
   } catch (error) {
+    console.error('Vertex AI error:', error);
+
+    const rawError = error instanceof Error ? error.message : String(error);
+    const authHint = rawError.includes('default credentials')
+      ? 'ADC missing in container. Mount a service-account key and set GOOGLE_APPLICATION_CREDENTIALS, or use Cloud Run service account auth.'
+      : undefined;
+
     const fallback = "I'm having trouble reaching the election assistant right now. Please try again later, and remember to verify important information with your local election authority.";
 
     logEvent('ERROR', 'chat.vertex_failure', {
       error: error instanceof Error ? error.toString() : String(error),
+      authHint,
       project,
       model: modelName,
       location,
       baseUrl: vertexModelBaseUrl,
+      hasCredentialsPath: Boolean(credentialsPath),
+      credentialsPath: credentialsPath || undefined,
     });
 
     res.status(500).json({ text: fallback });
@@ -171,16 +241,34 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // For any other request, serve the index.html (SPA support)
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
+  const credentialsDiagnostics = getCredentialsDiagnostics(credentialsPath);
+
   logEvent('INFO', 'server.started', {
     port,
     project,
     location,
     model: modelName,
+    mockAiMode,
+    hasCredentialsPath: credentialsDiagnostics.credentialsPathSet,
+    credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
+    credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
+    credentialsReadable: credentialsDiagnostics.credentialsReadable,
+    credentialsPath: credentialsPath || undefined,
     baseUrl: vertexModelBaseUrl,
   });
+
+  if (credentialsDiagnostics.credentialsPathSet && !credentialsDiagnostics.credentialsReadable) {
+    logEvent('WARNING', 'credentials.path_unreadable', {
+      credentialsPath,
+      credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
+      credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
+      credentialsReadable: credentialsDiagnostics.credentialsReadable,
+      hint: 'Check Docker bind mount source path and ensure it points to a readable JSON file, not a directory.',
+    });
+  }
 });

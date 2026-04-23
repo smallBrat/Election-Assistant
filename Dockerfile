@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files first for better layer caching
 COPY package.json package-lock.json ./
-RUN npm ci --frozen-lockfile
+RUN npm ci
 
 # Copy all source files and build the static client
 COPY . .
@@ -18,6 +18,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=8080
+
+# Install only production dependencies needed by server.mjs.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy the built client and the small Cloud Run server.
 COPY --from=builder /app/dist ./dist
