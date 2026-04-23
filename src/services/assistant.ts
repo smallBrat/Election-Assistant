@@ -3,15 +3,19 @@ export interface AssistantHistoryMessage {
   content: string;
 }
 
-interface AssistantApiSuccessResponse {
-  text?: string;
+export interface AssistantApiSuccessResponse {
+  text: string;
+  source: 'vertex' | 'mock' | 'fallback';
+  timestamp: string;
 }
 
 interface AssistantApiErrorResponse {
   error?: string;
+  source?: string;
+  timestamp?: string;
 }
 
-export async function askElectionAssistant(message: string, history: AssistantHistoryMessage[] = []): Promise<string> {
+export async function askElectionAssistant(message: string, history: AssistantHistoryMessage[] = []): Promise<AssistantApiSuccessResponse> {
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
@@ -20,11 +24,24 @@ export async function askElectionAssistant(message: string, history: AssistantHi
     body: JSON.stringify({ message, history }),
   });
 
-  const payload = await response.json() as AssistantApiSuccessResponse & AssistantApiErrorResponse;
+  const payload = await response.json().catch(() => ({})) as Partial<AssistantApiSuccessResponse> & AssistantApiErrorResponse;
 
   const replyText = typeof payload.text === 'string' ? payload.text.trim() : '';
-  if (replyText) {
-    return replyText;
+  const replySource = payload.source === 'vertex' || payload.source === 'mock' || payload.source === 'fallback'
+    ? payload.source
+    : response.ok
+      ? 'vertex'
+      : 'fallback';
+  const replyTimestamp = typeof payload.timestamp === 'string' && payload.timestamp.trim().length > 0
+    ? payload.timestamp
+    : new Date().toISOString();
+
+  if (response.ok && replyText) {
+    return {
+      text: replyText,
+      source: replySource,
+      timestamp: replyTimestamp,
+    };
   }
 
   if (!response.ok) {

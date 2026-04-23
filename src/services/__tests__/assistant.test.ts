@@ -5,7 +5,11 @@ describe('askElectionAssistant', () => {
   it('returns a Gemini reply when the API responds successfully', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ text: 'Use the official election office to verify the deadline.' }),
+      json: async () => ({
+        text: 'Use the official election office to verify the deadline.',
+        source: 'vertex',
+        timestamp: '2026-04-23T00:00:00.000Z',
+      }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -14,7 +18,9 @@ describe('askElectionAssistant', () => {
       { role: 'assistant', content: 'Hi there' },
     ]);
 
-    expect(reply).toContain('official election office');
+    expect(reply.text).toContain('official election office');
+    expect(reply.source).toBe('vertex');
+    expect(reply.timestamp).toBe('2026-04-23T00:00:00.000Z');
     expect(fetchMock).toHaveBeenCalledWith('/api/chat', expect.objectContaining({ method: 'POST' }));
   });
 

@@ -1,191 +1,242 @@
-# 🗳️ Election Assistant
+# Election Assistant
 
-> A bright, friendly, and interactive civic education platform that helps first-time voters, students, and curious citizens understand the election process — step by step.
+Election Assistant is a non-partisan election process education app. It combines a React frontend and an Express backend with Vertex AI Gemini to explain registration, required documents, timelines, and voting-day basics in plain language.
 
----
+## Features
 
-## ✨ Overview
+- React + TypeScript user experience focused on first-time voters
+- Express API endpoint at /api/chat with structured responses
+- Vertex AI Gemini integration via @google/genai
+- Mock mode for demos and offline testing
+- Dockerized runtime for local and Cloud Run deployment
+- Health endpoint at /healthz and readiness endpoint at /readyz
 
-**Election Assistant** is a non-partisan, educational web application built to demystify the democratic process. From understanding how elections are announced, to registering as a voter, to what to carry on polling day — this platform walks you through everything in plain, welcoming language.
+## Tech Stack
 
-The platform is designed to be:
-- **Beginner-friendly** — suitable for first-time voters and students
-- **Approachable** — warm, bright design that feels like a learning guide, not a government portal
-- **Non-partisan** — strictly informational with no political opinion or bias
-- **Interactive** — self-paced modules, quizzes, and checklists
+- Frontend: React, Vite, TypeScript
+- Backend: Node.js, Express
+- AI: Vertex AI Gemini via @google/genai
+- Container: Docker
+- Deployment target: Google Cloud Run
 
----
+## Local Prerequisites
 
-## 🚀 Features
+- Node.js 20 or later
+- npm
+- Docker Desktop
+- gcloud CLI for deployment steps
 
-| Feature | Description |
-|---|---|
-| 🏠 **Welcome Home** | Friendly landing page with a clear starting point |
-| 📖 **Guided Learning** | A 7-step, lesson-based walkthrough of the election process |
-| 🗓️ **Election Timeline** | An expandable phase-by-phase view of how elections unfold |
-| 🪜 **Step-by-Step Guide** | Visual card grid breaking down each voting action |
-| 📋 **Voter Registration** | Clear explanation of why and how to register |
-| 📄 **Required Documents** | A practical list of what to bring to the polls |
-| ✅ **Election Day Checklist** | An interactive, printable personal readiness checklist |
-| ❓ **FAQ** | A searchable accordion of common questions and answers |
-| 📚 **Glossary** | Card-based definitions of key election terminology |
-| 💬 **Ask the Assistant** | A Gemini-powered Q&A interface for quick civic questions |
-| 🧠 **Self-Check Quiz** | A 5-question quiz with explanations to test your knowledge |
-| 📈 **Progress Tracker** | Sidebar progress bar tracking how many sections you've visited |
+## Local Development
 
----
+Install dependencies and run the Vite development server:
 
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Framework** | React 19 + TypeScript |
-| **Build Tool** | Vite 8 |
-| **Styling** | Vanilla CSS (custom design system with CSS variables) |
-| **Icons** | Lucide React |
-| **State** | React Context API + `localStorage` persistence |
-| **Fonts** | Nunito (headings) + Inter (body) via Google Fonts |
-| **Google Services** | Gemini API, Cloud Run, Cloud Build, Cloud Logging |
-
----
-
-## 📦 Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18 or newer
-- npm (comes with Node.js)
-
-### Installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/smallBrat/Election-Assistant.git
-cd Election-Assistant
-
-# 2. Install dependencies
+```powershell
+cd "D:\CODE\HACKATHON\PromptWars\Week 2"
 npm install
-
-# 3. Start the development server
 npm run dev
 ```
 
-The app will be running at **http://localhost:5173/**
+Build production assets:
 
-### Build for Production
-
-```bash
+```powershell
 npm run build
 ```
 
-Output will be in the `dist/` folder, ready to deploy to static hosting or to the Cloud Run container included in this repository.
+## Runtime Environment Variables
 
-### Preview Production Build
+The backend uses these runtime variables:
 
-```bash
-npm run preview
+- PORT (default: 8080)
+- GOOGLE_CLOUD_PROJECT
+- GOOGLE_CLOUD_LOCATION (default: us-central1)
+- GEMINI_MODEL (default: gemini-2.5-flash)
+- MOCK_AI (default: false)
+- GOOGLE_APPLICATION_CREDENTIALS (local Docker only)
+
+Important: GOOGLE_APPLICATION_CREDENTIALS is for local Docker development only. Cloud Run should use service identity.
+
+## Local Docker Build
+
+```powershell
+cd "D:\CODE\HACKATHON\PromptWars\Week 2"
+docker build -t election-assistant:local .
 ```
 
----
+## Local Docker Run with Mounted JSON Key
 
-## 🧪 Testing
+Use a downloaded service-account JSON file only on your local machine. Do not commit it.
 
-The app uses Vitest and React Testing Library for unit, component, and integration-style coverage.
+```powershell
+$CredFile = "D:\keys\promptwars-vertex-sa-key.json"
 
-- `npm run test` runs the suite once in jsdom.
-- `npm run test:coverage` generates coverage output and enforces the configured thresholds.
-- Coverage and setup live in `vite.config.ts` and `src/test/`.
-
-Key coverage areas include navigation, progress tracking, quiz flow, FAQ/glossary search, checklist toggles, and the Gemini assistant success/fallback paths.
-
-See [TESTING.md](TESTING.md) for the full testing guide.
-
----
-
-## ☁️ Google Services Integration
-
-The assistant is backed by Gemini through a Cloud Run endpoint that reads `GEMINI_API_KEY` at runtime. The UI calls `/api/assistant`, and the server adds a neutral civic-education system prompt before forwarding the request to Gemini.
-
-- Cloud Run serves the production container and captures logs automatically in Cloud Logging.
-- Cloud Build can run tests, build the container, and deploy the app on push to `main`.
-- Assistant failures fall back to a local educational answer so the app remains usable even if Gemini is temporarily unavailable.
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for build, deploy, and logging steps.
-
-See [SECURITY.md](SECURITY.md) for API key handling and prompt-safety notes.
-
----
-
-## 📁 Project Structure
-
-```
-election-assistant/
-├── public/                  # Static assets (favicon, etc.)
-├── src/
-│   ├── assets/              # Images and static media
-│   ├── components/
-│   │   ├── sections/        # One file per section/page
-│   │   │   ├── Home.tsx
-│   │   │   ├── GuidedLearning.tsx
-│   │   │   ├── ElectionTimeline.tsx
-│   │   │   ├── StepByStepGuide.tsx
-│   │   │   ├── VoterRegistration.tsx
-│   │   │   ├── RequiredDocuments.tsx
-│   │   │   ├── ElectionDayChecklist.tsx
-│   │   │   ├── FAQ.tsx
-│   │   │   ├── Glossary.tsx
-│   │   │   ├── ChatAssistant.tsx
-│   │   │   └── Quiz.tsx
-│   │   ├── Navigation.tsx   # Left sidebar navigation
-│   │   └── Navigation.css
-│   ├── context/
-│   │   └── ProgressContext.tsx  # Global state for progress tracking
-│   ├── data/
-│   │   └── mockData.ts      # All educational content (FAQ, glossary, quiz, etc.)
-│   ├── App.tsx              # Root layout and section routing
-│   ├── App.css
-│   ├── index.css            # Design system: CSS variables and global styles
-│   └── main.tsx             # React entry point
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── .gitignore
-└── README.md
+docker run --rm -p 8080:8080 `
+  --mount type=bind,source="$CredFile",target=/secrets/promptwars-vertex-sa.json,readonly `
+  -e PORT=8080 `
+  -e GOOGLE_CLOUD_PROJECT=promptwars-493915 `
+  -e GOOGLE_CLOUD_LOCATION=us-central1 `
+  -e GEMINI_MODEL=gemini-2.5-flash `
+  -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/promptwars-vertex-sa.json `
+  election-assistant:local
 ```
 
----
+## Local Docker Run with Mock Mode
 
-## 🎨 Design Philosophy
+This keeps local behavior available for demos even when Vertex is not configured.
 
-The UI uses a **warm, creamy off-white palette** (`#FCFAF8` base) inspired by civic awareness pamphlets and accessible public information design. Key design choices:
+```powershell
+docker run --rm -p 8080:8080 `
+  -e PORT=8080 `
+  -e MOCK_AI=true `
+  -e GOOGLE_CLOUD_PROJECT=promptwars-493915 `
+  -e GOOGLE_CLOUD_LOCATION=us-central1 `
+  -e GEMINI_MODEL=gemini-2.5-flash `
+  election-assistant:local
+```
 
-- **No dark backgrounds** — keeps the experience light and inviting
-- **Rounded cards with soft shadows** — educational module feel
-- **Muted warm orange** for primary CTAs — friendly, not alarming
-- **Dusty slate blue** for headings and navigation accents
-- **Olive green** exclusively for success/progress states
-- **Generous whitespace** — gives content room to breathe
+## PowerShell API Tests
 
----
+Health check:
 
-## 🔮 Future Improvements
+```powershell
+Invoke-RestMethod -Uri http://localhost:8080/healthz -Method GET | ConvertTo-Json -Depth 3
+```
 
-- [ ] Add real election data API integration (e.g., by country/state)
-- [ ] Multilingual support (Hindi, Tamil, Bengali, etc.)
-- [ ] Accessibility audit and WCAG 2.2 compliance pass
-- [ ] Dark mode support
-- [ ] Shareable quiz scores
-- [ ] Printable voter registration guide PDF
+Chat check:
 
----
+```powershell
+Invoke-RestMethod `
+  -Uri http://localhost:8080/api/chat `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"message":"Explain voter registration simply","history":[]}' | ConvertTo-Json -Depth 4
+```
 
-## 📝 License
+## Troubleshooting
 
-This project is for educational and civic awareness purposes. Feel free to fork and adapt for non-commercial use.
+- Missing credentials file:
+  - Verify the host path points to a real JSON file.
+  - Verify the container target path matches GOOGLE_APPLICATION_CREDENTIALS.
+- Docker mount issues:
+  - If the mounted target appears as a directory, your source path is likely wrong.
+  - Confirm read access to the host file.
+- Vertex permission issues:
+  - Ensure the identity used by the app has Vertex AI User role.
+  - Confirm project, region, and model values are valid.
+- 500 fallback response from /api/chat:
+  - Check container logs for chat.model_request_failure.
+  - Verify GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION are set correctly.
 
----
+## Safe GitHub Push Workflow
 
-## 🙏 Acknowledgements
+Before pushing, confirm no secret files are staged. Never commit JSON keys.
 
-Built as part of a civic tech hackathon to make democratic participation more accessible and understandable for everyone.
+1. Create a new empty repository on GitHub.
+1. Initialize git if needed:
+
+```powershell
+git init
+```
+
+1. Check status:
+
+```powershell
+git status
+```
+
+1. Stage files:
+
+```powershell
+git add .
+```
+
+1. Double-check staged files for safety:
+
+```powershell
+git status
+git diff --cached --name-only
+```
+
+1. Commit:
+
+```powershell
+git commit -m "Initial commit"
+```
+
+1. Set main branch:
+
+```powershell
+git branch -M main
+```
+
+1. Add remote:
+
+```powershell
+git remote add origin <repo-url>
+```
+
+1. Push:
+
+```powershell
+git push -u origin main
+```
+
+## Cloud Run Deployment
+
+### Required APIs
+
+```powershell
+gcloud config set project promptwars-493915
+
+gcloud services enable run.googleapis.com `
+  artifactregistry.googleapis.com `
+  cloudbuild.googleapis.com `
+  aiplatform.googleapis.com
+```
+
+### Runtime Identity Model
+
+- Cloud Run uses a runtime service account identity.
+- Do not mount JSON key files in Cloud Run.
+- Example runtime service account:
+  `promptwars-cloudrun-sa@promptwars-493915.iam.gserviceaccount.com`
+
+### Build and Push Image (Cloud Build)
+
+```powershell
+gcloud builds submit --tag gcr.io/promptwars-493915/election-assistant:latest
+```
+
+### Deploy to Cloud Run
+
+```powershell
+gcloud run deploy election-assistant `
+  --image gcr.io/promptwars-493915/election-assistant:latest `
+  --region us-central1 `
+  --platform managed `
+  --allow-unauthenticated `
+  --service-account promptwars-cloudrun-sa@promptwars-493915.iam.gserviceaccount.com `
+  --set-env-vars GOOGLE_CLOUD_PROJECT=promptwars-493915,GOOGLE_CLOUD_LOCATION=us-central1,GEMINI_MODEL=gemini-2.5-flash,MOCK_AI=false
+```
+
+### IAM Guidance (Minimal)
+
+- Runtime service account needs Vertex AI User role:
+  - roles/aiplatform.user
+- Deployer needs Cloud Run deployment permission:
+  - roles/run.developer (or equivalent)
+- Deployer needs permission to act as runtime service account:
+  - roles/iam.serviceAccountUser on promptwars-cloudrun-sa
+- If using Artifact Registry repositories, ensure image push/pull permissions:
+  - roles/artifactregistry.writer for push
+  - roles/artifactregistry.reader for pull where required
+
+## Optional: GitHub Actions Without Keys
+
+For CI/CD later, prefer GitHub Actions with Workload Identity Federation so no service-account key JSON is stored in GitHub secrets. This is safer than key-based auth and aligns with production best practices.
+
+## Security Rules
+
+- Never commit service-account JSON files.
+- Keep key files under local folders such as keys or docker-secrets.
+- Use GOOGLE_APPLICATION_CREDENTIALS only for local Docker testing.
+- Use Cloud Run service identity in deployed environments.

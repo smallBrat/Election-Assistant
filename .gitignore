@@ -11,6 +11,19 @@ coverage/
 .env
 .env.local
 .env.*.local
+.env.*
+
+# ── Secrets / Keys (never commit) ─────────────────────────────
+keys/
+docker-secrets/
+secrets/
+*.pem
+*.key
+*.crt
+service-account*.json
+*service-account*.json
+*-sa*.json
+*credentials*.json
 
 # ── Logs ─────────────────────────────────────────────────────
 logs/
@@ -23,11 +36,13 @@ pnpm-debug.log*
 # ── Editor / OS Files ────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
 *.suo
 *.sln
 *.sw?
 *.ntvs*
 *.njsproj
+.history/
 
 # ── VS Code (keep only shared settings) ─────────────────────
 .vscode/*
@@ -36,6 +51,7 @@ Thumbs.db
 
 # ── JetBrains IDEs ───────────────────────────────────────────
 .idea/
+.vs/
 
 # ── Vite Cache ───────────────────────────────────────────────
 .vite/

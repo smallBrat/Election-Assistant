@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { CheckCircle2, Headphones, LoaderCircle, Send, ShieldAlert, Sparkles, User, AlertTriangle } from 'lucide-react';
 import { useProgress } from '../../context/ProgressContext';
-import { Send, User, Headphones, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
-import { askElectionAssistant, type AssistantHistoryMessage } from '../../services/assistant';
+import { askElectionAssistant, type AssistantApiSuccessResponse, type AssistantHistoryMessage } from '../../services/assistant';
 import { getFallbackAssistantReply } from '../../services/assistantFallback';
+import './ChatAssistant.css';
 
 interface ChatMessage {
   id: string;
@@ -10,14 +11,33 @@ interface ChatMessage {
   text: string;
 }
 
+type AssistantService = (message: string, history?: AssistantHistoryMessage[]) => Promise<AssistantApiSuccessResponse | string>;
+
 export interface ChatAssistantProps {
-  assistantService?: typeof askElectionAssistant;
+  assistantService?: AssistantService;
+}
+
+const disclaimerText = 'Election rules, deadlines, and required documents vary by country and region. Verify official information with your local election authority.';
+
+const suggestedPrompts = [
+  'Explain voter registration simply',
+  'What happens on election day?',
+  'What documents do I need?',
+  'Explain the election process step by step',
+];
+
+function normalizeAssistantReply(reply: AssistantApiSuccessResponse | string): string {
+  if (typeof reply === 'string') {
+    return reply.trim();
+  }
+
+  return reply.text.trim();
 }
 
 export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService = askElectionAssistant }) => {
   const { markCompleted, completedSections } = useProgress();
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: '1', sender: 'assistant', text: "Hi there! I'm your friendly civic guide. What's on your mind regarding the election process today?" }
+    { id: '1', sender: 'assistant', text: "Hi there! I'm your friendly civic guide. What's on your mind regarding the election process today?" },
   ]);
   const [inputValue, setInputValue] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -39,18 +59,22 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
     if (!trimmedInput || isSending) return;
 
     const userMsg: ChatMessage = { id: `${Date.now()}-user`, sender: 'user', text: trimmedInput };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInputValue('');
     setIsSending(true);
     setErrorMessage(null);
 
     try {
       const assistantReply = await assistantService(trimmedInput, toHistory(messages));
-      const assistantMsg: ChatMessage = { id: `${Date.now()}-assistant`, sender: 'assistant', text: assistantReply };
-      setMessages(prev => [...prev, assistantMsg]);
+      const assistantMsg: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        sender: 'assistant',
+        text: normalizeAssistantReply(assistantReply),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch (error) {
       const fallbackReply = getFallbackAssistantReply(trimmedInput);
-      setMessages(prev => [...prev, {
+      setMessages((prev) => [...prev, {
         id: `${Date.now()}-assistant-fallback`,
         sender: 'assistant',
         text: fallbackReply,
@@ -62,72 +86,68 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
     }
   };
 
-  const suggestedPrompts = [
-    'Explain the election process simply',
-    'What happens before election day?',
-    'How does voter registration work?',
-    'What should I carry to vote?'
-  ];
-
   return (
-    <div className="page-section" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxWidth: '900px', margin: '0 auto' }}>
-      <div className="flex-between mb-4" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '2rem' }}>
+    <div className="page-section chat-page">
+      <div className="flex-between chat-header">
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--accent-secondary)' }}>
+          <div className="chat-header__eyebrow">
             <Sparkles size={18} />
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Gemini-powered assistant</span>
+            <span className="chat-header__eyebrow-text">Gemini-powered assistant</span>
           </div>
-          <h2 style={{ margin: 0 }}>Ask the Assistant</h2>
-          <p className="text-secondary" style={{ marginTop: '0.75rem', fontSize: '1.15rem' }}>Ask your questions and get simple, neutral answers about the election process.</p>
+          <h2 className="chat-header__title">Ask the Assistant</h2>
+          <p className="text-secondary chat-header__subtitle">Ask your questions and get simple, neutral answers about the election process.</p>
         </div>
         {completedSections['chat'] && (
-          <div className="flex-center gap-2 text-success" style={{ background: 'var(--accent-success-bg)', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-full)' }}>
-            <CheckCircle2 size={24} /> <span style={{ fontWeight: 600 }}>Completed</span>
+          <div className="chat-completed text-success">
+            <CheckCircle2 size={24} /> <span className="chat-completed__text">Completed</span>
           </div>
         )}
       </div>
 
+      <div className="notice-block notice-info chat-disclaimer" role="note">
+        <ShieldAlert size={20} aria-hidden="true" />
+        <p className="chat-disclaimer__text">{disclaimerText}</p>
+      </div>
+
       {errorMessage && (
-        <div className="notice-block notice-warning" role="status" aria-live="polite" style={{ marginBottom: '1.25rem' }}>
+        <div className="notice-block notice-warning chat-error" role="status" aria-live="polite">
           <AlertTriangle size={20} aria-hidden="true" />
-          <p style={{ margin: 0, lineHeight: '1.6' }}>{errorMessage}</p>
+          <p className="chat-error__text">{errorMessage}</p>
         </div>
       )}
 
-      <div className="panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden', background: '#FFF' }}>
-        <div aria-live="polite" aria-relevant="additions text" style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'var(--bg-primary)' }}>
-          {messages.map(msg => (
-            <div key={msg.id} style={{ display: 'flex', gap: '1.25rem', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row' }}>
-              <div className="flex-center" style={{
-                width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
-                background: msg.sender === 'user' ? 'var(--accent-primary)' : 'var(--accent-secondary)',
-                color: 'white',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
+      <div className="panel chat-shell">
+        <div aria-live="polite" aria-relevant="additions text" className="chat-messages">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`chat-message ${msg.sender === 'user' ? 'chat-message--user' : ''}`}>
+              <div className={`chat-avatar ${msg.sender === 'user' ? 'chat-avatar--user' : 'chat-avatar--assistant'}`}>
                 {msg.sender === 'user' ? <User size={20} /> : <Headphones size={20} />}
               </div>
-              <div style={{
-                background: msg.sender === 'user' ? 'var(--accent-primary)' : '#FFF',
-                color: msg.sender === 'user' ? '#FFF' : 'var(--text-primary)',
-                padding: '1rem 1.5rem', borderRadius: 'var(--radius-lg)',
-                border: msg.sender === 'user' ? 'none' : '1px solid var(--border-light)',
-                maxWidth: '80%',
-                boxShadow: 'var(--shadow-sm)'
-              }}>
-                <p style={{ margin: 0, lineHeight: '1.6' }}>{msg.text}</p>
+              <div className={`chat-bubble ${msg.sender === 'user' ? 'chat-bubble--user' : 'chat-bubble--assistant'}`}>
+                <p className="chat-message__text">{msg.text}</p>
               </div>
             </div>
           ))}
+
+          {isSending && (
+            <div className="chat-message chat-sending" aria-hidden="true">
+              <div className="chat-avatar chat-avatar--thinking">
+                <LoaderCircle size={20} className="spin" />
+              </div>
+              <div className="chat-bubble chat-bubble--thinking">
+                <p className="chat-thinking__text">Thinking about your question...</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-light)', background: '#FFF' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            {suggestedPrompts.map((prompt, idx) => (
+        <div className="chat-footer">
+          <div className="chat-prompts">
+            {suggestedPrompts.map((prompt) => (
               <button
-                key={idx}
+                key={prompt}
                 type="button"
-                className="btn btn-secondary"
-                style={{ fontSize: '0.85rem', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)' }}
+                className="btn btn-secondary chat-prompt"
                 onClick={() => setInputValue(prompt)}
               >
                 {prompt}
@@ -135,13 +155,13 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
             ))}
           </div>
           <form
+            className="chat-form"
             onSubmit={(event) => {
               event.preventDefault();
               void handleSend();
             }}
-            style={{ display: 'flex', gap: '0.75rem' }}
           >
-            <label htmlFor="assistant-question" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+            <label htmlFor="assistant-question" className="chat-label">
               Ask the assistant a civic education question
             </label>
             <input
@@ -150,18 +170,16 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Ask a question about voting, timelines, or documents..."
-              style={{
-                flex: 1, borderRadius: 'var(--radius-full)', background: 'var(--bg-secondary)', border: '1px solid var(--border-medium)'
-              }}
+              className="chat-input"
               aria-describedby="assistant-help"
               disabled={isSending}
             />
-            <button className="btn btn-primary" type="submit" disabled={isSending || !inputValue.trim()} style={{ width: '96px', height: '48px', padding: 0, borderRadius: 'var(--radius-full)' }}>
-              <Send size={18} />
+            <button className="btn btn-primary chat-submit" type="submit" disabled={isSending || !inputValue.trim()}>
+              {isSending ? <LoaderCircle size={18} className="spin" /> : <Send size={18} />}
               <span>{isSending ? 'Sending...' : 'Send'}</span>
             </button>
           </form>
-          <p id="assistant-help" className="text-muted" style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.95rem' }}>
+          <p id="assistant-help" className="text-muted chat-help">
             Ask about registration, election timelines, required documents, or what happens on voting day.
           </p>
         </div>

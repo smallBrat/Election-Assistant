@@ -9,9 +9,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run --pool threads --maxWorkers 1",
-    "test:watch": "vitest --pool threads --maxWorkers 1",
-    "test:coverage": "vitest run --pool threads --maxWorkers 1 --coverage"
+    "test": "vitest run --pool forks --maxWorkers 1",
+    "test:watch": "vitest --pool forks --maxWorkers 1",
+    "test:coverage": "vitest run --pool forks --maxWorkers 1 --coverage"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",

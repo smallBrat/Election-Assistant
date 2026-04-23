@@ -15,6 +15,8 @@ import { Glossary } from './components/sections/Glossary'
 import { ChatAssistant } from './components/sections/ChatAssistant'
 import { Quiz } from './components/sections/Quiz'
 
+const disclaimerText = 'Election rules, deadlines, and required documents vary by country and region. Verify official information with your local election authority.';
+
 function App() {
   const [currentSection, setCurrentSection] = useState<SectionKey>('home');
   const [isMobileOpen, setMobileOpen] = useState(false);
@@ -51,15 +53,18 @@ function App() {
         isMobileOpen={isMobileOpen}
         setMobileOpen={setMobileOpen}
       />
-      <main className="main-content" style={{ marginLeft: !isMobile ? '280px' : '0' }}>
+      <main className={`main-content ${!isMobile ? 'main-content--with-sidebar' : ''}`}>
         {isMobile && (
           <header className="flex-between mb-8" id="mobile-header">
             <button className="btn btn-secondary btn-icon" onClick={() => setMobileOpen(true)} aria-label="Open Menu">
               <Menu size={24} />
             </button>
-            <h2 style={{ marginBottom: 0, fontSize: '1.25rem', color: 'var(--heading-slate)' }}>Election Assistant</h2>
+            <h2 className="app-title">Election Assistant</h2>
           </header>
         )}
+        <div className="notice-block notice-info app-disclaimer" role="note">
+          <p className="app-disclaimer__text">{disclaimerText}</p>
+        </div>
         {renderSection()}
       </main>
     </div>

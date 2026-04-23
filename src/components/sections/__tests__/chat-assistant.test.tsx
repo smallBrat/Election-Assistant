@@ -5,7 +5,11 @@ import { ChatAssistant } from '../ChatAssistant';
 
 describe('ChatAssistant', () => {
   it('renders Gemini responses when the service succeeds', async () => {
-    const assistantService = vi.fn().mockResolvedValue('Check your official election office for the exact deadline.');
+    const assistantService = vi.fn().mockResolvedValue({
+      text: 'Check your official election office for the exact deadline.',
+      source: 'vertex',
+      timestamp: '2026-04-23T00:00:00.000Z',
+    });
 
     renderWithProviders(<ChatAssistant assistantService={assistantService} />);
 

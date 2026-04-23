@@ -1,10 +1,10 @@
 # Security
 
-## API keys
+## Identity and credentials
 
-- `GEMINI_API_KEY` is handled as a runtime secret on Cloud Run.
-- The key is never committed to the repository or embedded in client code.
-- Local development should use a local environment variable or secret file outside version control.
+- Cloud Run uses service identity for Vertex AI access.
+- `GOOGLE_APPLICATION_CREDENTIALS` is local-development only and should not be used in Cloud Run.
+- Service-account JSON files must stay outside version control and never be committed.
 
 ## Gemini prompt safety
 
