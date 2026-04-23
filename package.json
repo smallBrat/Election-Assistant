@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "node server.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -13,6 +14,8 @@
     "test:coverage": "vitest run --pool threads --maxWorkers 1 --coverage"
   },
   "dependencies": {
+    "@google/genai": "^1.50.1",
+    "express": "^5.1.0",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"

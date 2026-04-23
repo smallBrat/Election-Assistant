@@ -29,8 +29,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
 
   const toHistory = (items: ChatMessage[]): AssistantHistoryMessage[] => (
     items.map((item) => ({
-      role: item.sender === 'assistant' ? 'model' : 'user',
-      text: item.text,
+      role: item.sender,
+      content: item.text,
     }))
   );
 
@@ -45,7 +45,7 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
     setErrorMessage(null);
 
     try {
-      const assistantReply = await assistantService(trimmedInput, toHistory([...messages, userMsg]));
+      const assistantReply = await assistantService(trimmedInput, toHistory(messages));
       const assistantMsg: ChatMessage = { id: `${Date.now()}-assistant`, sender: 'assistant', text: assistantReply };
       setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
@@ -55,8 +55,8 @@ export const ChatAssistant: React.FC<ChatAssistantProps> = ({ assistantService =
         sender: 'assistant',
         text: fallbackReply,
       }]);
-      setErrorMessage('Gemini is temporarily unavailable, so a local educational fallback was used.');
-      console.error('Failed to fetch Gemini assistant response', error);
+      setErrorMessage('The assistant is temporarily unavailable, so a local educational fallback was used.');
+      console.error('Failed to fetch Vertex AI assistant response', error);
     } finally {
       setIsSending(false);
     }

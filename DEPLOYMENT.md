@@ -23,11 +23,12 @@ gcloud run deploy election-assistant \
 
 ## Environment variables
 
-- `PORT` is injected by Cloud Run and defaults to `8080` locally in the container.
-- `GEMINI_API_KEY` is required for live Gemini responses.
-- `GEMINI_MODEL` is optional and defaults to `gemini-2.0-flash`.
+- `PORT`: Injected by Cloud Run (defaults to `8080`).
+- `GOOGLE_CLOUD_PROJECT`: Required for Vertex AI (automatically set in Cloud Build/Cloud Run config).
+- `GOOGLE_CLOUD_LOCATION`: Regional endpoint for Vertex AI (defaults to `us-central1`).
+- `GEMINI_MODEL`: Model name (defaults to `gemini-2.0-flash`).
 
-Use Secret Manager for `GEMINI_API_KEY` in production. Do not hardcode the key in the frontend or Docker image.
+Vertex AI uses the Cloud Run service account permissions. Ensure the service account has `Vertex AI User` role.
 
 ## Logs and monitoring
 

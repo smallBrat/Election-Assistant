@@ -1,205 +1,186 @@
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { GoogleGenAI } from '@google/genai';
 
 const port = Number(process.env.PORT || 8080);
-const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
-const geminiModel = process.env.GEMINI_MODEL?.trim() || 'gemini-2.0-flash';
-const __dirname = resolve(fileURLToPath(new URL('.', import.meta.url)));
-const distDirectory = join(__dirname, 'dist');
+const project = process.env.GOOGLE_CLOUD_PROJECT;
+const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const vertexModelBaseUrl = project
+  ? `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models`
+  : `https://${location}-aiplatform.googleapis.com/v1/projects/_/locations/${location}/publishers/google/models`;
 
-const systemPrompt = [
-  'You are a civic education assistant focused on the democratic election process.',
-  'Use simple, plain language and stay strictly neutral.',
-  'Do not persuade users to support a party, candidate, ideology, or political outcome.',
-  'Explain registration, timelines, documents, polling, and vote counting clearly.',
-  'If rules vary by country, state, or region, say so explicitly and encourage users to verify official local information.',
-  'Never fabricate legal advice or claim certainty when local election rules may differ.',
+const systemInstructionText = [
+  'You are a non-partisan election education assistant.',
+  'Explain election processes clearly in plain language.',
+  'Do not persuade users politically, endorse candidates, parties, or ideologies.',
+  'Keep explanations educational, neutral, and factual.',
+  'Always remind users that rules and required documents vary by country and region.',
+  'Advise users to verify official information with their local election authority.',
 ].join(' ');
-
-const mimeTypes = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-};
 
 function logEvent(severity, event, details = {}) {
   console.log(JSON.stringify({ severity, event, timestamp: new Date().toISOString(), ...details }));
 }
 
-async function readJsonBody(request) {
-  const chunks = [];
+function getFallbackResponse(message) {
+  const query = message.toLowerCase();
 
-  for await (const chunk of request) {
-    chunks.push(chunk);
+  if (query.includes('register')) {
+    return 'Voter registration usually means adding your details to your local electoral roll before the deadline. Requirements and deadlines vary by country and region, so please verify with your local election authority.';
   }
 
-  const rawBody = Buffer.concat(chunks).toString('utf8');
-  if (!rawBody) {
-    return {};
+  if (query.includes('document') || query.includes('id')) {
+    return 'Many places require a valid ID and sometimes proof of address, but exact document rules vary by country and region. Please confirm official requirements with your local election authority.';
   }
 
-  return JSON.parse(rawBody);
+  if (query.includes('timeline') || query.includes('when')) {
+    return 'Election timelines often include announcement, registration, campaigning, voting day, and counting. Dates and procedures vary by country and region, so please check official local election information.';
+  }
+
+  return 'I can help explain election processes in neutral, plain language. Rules vary by country and region, so please verify official details with your local election authority.';
 }
 
-function sendJson(response, statusCode, body) {
-  response.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-  });
-  response.end(JSON.stringify(body));
+function normalizeHistory(history) {
+  return history
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => {
+      const role = item.role === 'assistant' ? 'model' : item.role;
+      const content = typeof item.content === 'string' ? item.content.trim() : '';
+      return { role, content };
+    })
+    .filter((item) => (item.role === 'user' || item.role === 'model') && item.content.length > 0)
+    .map((item) => ({
+      role: item.role,
+      parts: [{ text: item.content }],
+    }));
 }
 
-function fallbackReply(message) {
-  const lowerMessage = message.toLowerCase();
-
-  if (lowerMessage.includes('register')) {
-    return 'Registration usually means adding your details to the official voter list before the deadline. Rules vary by location, so verify the exact process with your local election office.';
+function extractTextFromResponse(response) {
+  const candidates = response?.candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return '';
   }
 
-  if (lowerMessage.includes('document') || lowerMessage.includes('id')) {
-    return 'Most places ask for some form of identification or proof of address, but the exact requirement depends on your region. Check the official election website for the current list.';
+  const parts = candidates[0]?.content?.parts;
+  if (!Array.isArray(parts) || parts.length === 0) {
+    return '';
   }
 
-  if (lowerMessage.includes('timeline') || lowerMessage.includes('when')) {
-    return 'Election timelines often include an announcement, registration deadline, campaign period, voting day, and vote counting. The dates are set locally, so always confirm with official sources.';
-  }
-
-  return 'I can explain the election process in simple, neutral terms. Please check your official local election website for rules that apply in your country or region.';
+  return parts
+    .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+    .join('')
+    .trim();
 }
 
-async function callGemini(message, history) {
-  if (!geminiApiKey) {
-    throw new Error('GEMINI_API_KEY is not configured.');
+const ai = project
+  ? new GoogleGenAI({
+      vertexai: true,
+      project,
+      location,
+    })
+  : null;
+
+const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+app.use(express.json({ limit: '1mb' }));
+
+// Serve static assets from the "dist" directory
+app.use(express.static(path.join(__dirname, 'dist')));
+
+app.get('/healthz', (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.post('/api/chat', async (req, res) => {
+  const { message, history = [] } = req.body ?? {};
+
+  if (typeof message !== 'string' || message.trim().length === 0) {
+    res.status(400).json({ error: 'message must be a non-empty string.' });
+    return;
   }
 
-  const requestBody = {
-    systemInstruction: {
-      parts: [{ text: systemPrompt }],
+  if (!Array.isArray(history)) {
+    res.status(400).json({ error: 'history must be an array.' });
+    return;
+  }
+
+  const userMessage = message.trim();
+  const contents = [
+    ...normalizeHistory(history),
+    {
+      role: 'user',
+      parts: [{ text: userMessage }],
     },
-    contents: [
-      ...history.map((item) => ({
-        role: item.role,
-        parts: [{ text: item.text }],
-      })),
-      {
-        role: 'user',
-        parts: [{ text: message }],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      topP: 0.9,
-      maxOutputTokens: 400,
-    },
-  };
+  ];
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload?.error?.message || 'Gemini request failed.');
-  }
-
-  const reply = payload?.candidates?.[0]?.content?.parts?.map((part) => part.text).filter(Boolean).join('').trim();
-
-  if (!reply) {
-    throw new Error('Gemini returned an empty response.');
-  }
-
-  return reply;
-}
-
-async function serveStaticAsset(response, filePath) {
   try {
-    const content = await readFile(filePath);
-    const extension = extname(filePath);
-    response.writeHead(200, {
-      'Content-Type': mimeTypes[extension] || 'application/octet-stream',
-      'Cache-Control': extension === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
-    });
-    response.end(content);
-  } catch {
-    const indexPath = join(distDirectory, 'index.html');
-    const content = await readFile(indexPath);
-    response.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache',
-    });
-    response.end(content);
-  }
-}
-
-createServer(async (request, response) => {
-  const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
-
-  if (request.method === 'GET' && requestUrl.pathname === '/healthz') {
-    sendJson(response, 200, { ok: true });
-    return;
-  }
-
-  if (request.method === 'POST' && requestUrl.pathname === '/api/assistant') {
-    try {
-      const body = await readJsonBody(request);
-      const message = typeof body.message === 'string' ? body.message.trim() : '';
-      const history = Array.isArray(body.history)
-        ? body.history.filter((item) => item && typeof item.text === 'string' && (item.role === 'user' || item.role === 'model'))
-        : [];
-
-      if (!message) {
-        sendJson(response, 400, { error: 'Message is required.' });
-        return;
-      }
-
-      logEvent('INFO', 'assistant.request', {
-        messageLength: message.length,
-        historyLength: history.length,
-        model: geminiModel,
-      });
-
-      try {
-        const reply = await callGemini(message, history);
-        logEvent('INFO', 'assistant.success', { replyLength: reply.length });
-        sendJson(response, 200, { reply });
-      } catch (error) {
-        const fallback = fallbackReply(message);
-        logEvent('ERROR', 'assistant.fallback', {
-          error: error instanceof Error ? error.message : 'Unknown Gemini error',
-        });
-        sendJson(response, 503, {
-          error: 'Gemini is temporarily unavailable.',
-          reply: fallback,
-        });
-      }
-    } catch (error) {
-      logEvent('ERROR', 'assistant.bad_request', {
-        error: error instanceof Error ? error.message : 'Invalid JSON payload',
-      });
-      sendJson(response, 400, { error: 'Invalid request body.' });
+    if (!project) {
+      throw new Error('GOOGLE_CLOUD_PROJECT is not set.');
     }
-    return;
-  }
 
-  const pathname = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
-  const filePath = join(distDirectory, pathname);
-  await serveStaticAsset(response, filePath);
-}).listen(port, () => {
-  logEvent('INFO', 'server.started', { port });
+    if (!ai) {
+      throw new Error('Gen AI client was not initialized.');
+    }
+
+    const result = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        systemInstruction: {
+          role: 'system',
+          parts: [{ text: systemInstructionText }],
+        },
+        temperature: 0.2,
+        topP: 0.9,
+        maxOutputTokens: 512,
+      },
+    });
+
+    const text =
+      (typeof result?.text === 'string' ? result.text.trim() : '') ||
+      extractTextFromResponse(result);
+
+    if (!text) {
+      throw new Error('Vertex AI returned an empty response.');
+    }
+
+    logEvent('INFO', 'chat.vertex_success', {
+      project,
+      model: modelName,
+      location,
+      baseUrl: vertexModelBaseUrl,
+    });
+
+    res.json({ text });
+  } catch (error) {
+    const fallback = "I'm having trouble reaching the election assistant right now. Please try again later, and remember to verify important information with your local election authority.";
+
+    logEvent('ERROR', 'chat.vertex_failure', {
+      error: error instanceof Error ? error.toString() : String(error),
+      project,
+      model: modelName,
+      location,
+      baseUrl: vertexModelBaseUrl,
+    });
+
+    res.status(500).json({ text: fallback });
+  }
+});
+
+// For any other request, serve the index.html (SPA support)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+app.listen(port, () => {
+  logEvent('INFO', 'server.started', {
+    port,
+    project,
+    location,
+    model: modelName,
+    baseUrl: vertexModelBaseUrl,
+  });
 });

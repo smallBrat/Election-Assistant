@@ -29,8 +29,8 @@ describe('ChatAssistant', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /send/i }));
 
-    expect(await screen.findByText(/gemini is temporarily unavailable/i)).toBeInTheDocument();
-    expect(screen.getByText(/you should carry an accepted form of identification/i)).toBeInTheDocument();
+    expect(await screen.findByText(/the assistant is temporarily unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/accepted form of identification/i)).toBeInTheDocument();
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

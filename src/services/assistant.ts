@@ -1,10 +1,10 @@
 export interface AssistantHistoryMessage {
-  role: 'user' | 'model';
-  text: string;
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 interface AssistantApiSuccessResponse {
-  reply?: string;
+  text?: string;
 }
 
 interface AssistantApiErrorResponse {
@@ -12,7 +12,7 @@ interface AssistantApiErrorResponse {
 }
 
 export async function askElectionAssistant(message: string, history: AssistantHistoryMessage[] = []): Promise<string> {
-  const response = await fetch('/api/assistant', {
+  const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -22,13 +22,14 @@ export async function askElectionAssistant(message: string, history: AssistantHi
 
   const payload = await response.json() as AssistantApiSuccessResponse & AssistantApiErrorResponse;
 
+  const replyText = typeof payload.text === 'string' ? payload.text.trim() : '';
+  if (replyText) {
+    return replyText;
+  }
+
   if (!response.ok) {
     throw new Error(payload.error || 'The assistant service is temporarily unavailable.');
   }
 
-  if (typeof payload.reply !== 'string' || !payload.reply.trim()) {
-    throw new Error('The assistant returned an empty response.');
-  }
-
-  return payload.reply.trim();
+  throw new Error('The assistant returned an empty response.');
 }
