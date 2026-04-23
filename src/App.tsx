@@ -53,7 +53,7 @@ function App() {
         isMobileOpen={isMobileOpen}
         setMobileOpen={setMobileOpen}
       />
-      <main className={`main-content ${!isMobile ? 'main-content--with-sidebar' : ''}`}>
+      <main className={`main-content ${!isMobile ? 'main-content--with-sidebar' : ''} ${currentSection === 'chat' ? 'main-content--chat-wide' : ''}`}>
         {isMobile && (
           <header className="flex-between mb-8" id="mobile-header">
             <button className="btn btn-secondary btn-icon" onClick={() => setMobileOpen(true)} aria-label="Open Menu">
@@ -62,9 +62,11 @@ function App() {
             <h2 className="app-title">Election Assistant</h2>
           </header>
         )}
-        <div className="notice-block notice-info app-disclaimer" role="note">
-          <p className="app-disclaimer__text">{disclaimerText}</p>
-        </div>
+        {currentSection !== 'chat' && (
+          <div className="notice-block notice-info app-disclaimer" role="note">
+            <p className="app-disclaimer__text">{disclaimerText}</p>
+          </div>
+        )}
         {renderSection()}
       </main>
     </div>

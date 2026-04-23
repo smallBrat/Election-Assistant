@@ -117,7 +117,19 @@ button {
 
 @media (min-width: 768px) {
   .main-content.main-content--with-sidebar {
-    margin-left: 280px;
+    margin-left: 256px;
+  }
+
+  .main-content.main-content--chat-wide {
+    max-width: 1220px;
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .main-content {
+    padding: 1.5rem 1rem 2rem;
   }
 }
 
