@@ -26,7 +26,7 @@ if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-} else {
+} else if (import.meta.env.DEV) {
   console.info('Firebase client is not configured. Auth and Firestore features are disabled until VITE_FIREBASE_* vars are set.');
 }
 

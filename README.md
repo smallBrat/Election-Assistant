@@ -84,6 +84,13 @@ Copy `.env.example` to `.env.local` and set:
 
 These are Firebase client configuration values and are safe for frontend usage. Do not store admin/service-account keys in frontend env files.
 
+### Build-time vs runtime environment separation
+
+- Frontend Vite variables (`VITE_FIREBASE_*`) are injected at Docker image build time.
+- Backend server variables (`GOOGLE_CLOUD_*`, `GEMINI_MODEL`, `MOCK_AI`) are read at runtime by Cloud Run.
+
+Important: Setting `VITE_FIREBASE_*` only in Cloud Run runtime env vars is not enough. The values must be present during `npm run build` in the Docker builder stage.
+
 ## Local Docker Build
 
 ```powershell
@@ -233,6 +240,13 @@ gcloud services enable run.googleapis.com `
 
 ```powershell
 gcloud builds submit --tag gcr.io/promptwars-493915/election-assistant:latest
+```
+
+With Firebase build substitutions:
+
+```powershell
+gcloud builds submit --config cloudbuild.yaml `
+  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID
 ```
 
 ### Deploy to Cloud Run
