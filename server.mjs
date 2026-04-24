@@ -1,16 +1,31 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 
+dotenv.config();
+
+function readEnv(name, fallback = '') {
+  const value = process.env[name];
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+const isCloudRun = Boolean(process.env.K_SERVICE);
+
 const config = {
-  port: Number(process.env.PORT || 8080),
-  project: process.env.GOOGLE_CLOUD_PROJECT || '',
-  location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
-  modelName: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  mockAiMode: String(process.env.MOCK_AI || '').toLowerCase() === 'true',
-  credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || '',
+  port: Number(readEnv('PORT', '8080')),
+  project: readEnv('GOOGLE_CLOUD_PROJECT', ''),
+  location: readEnv('GOOGLE_CLOUD_LOCATION', 'us-central1'),
+  modelName: readEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
+  mockAiMode: readEnv('MOCK_AI', '').toLowerCase() === 'true',
+  credentialsPath: readEnv('GOOGLE_APPLICATION_CREDENTIALS', ''),
 };
 
 const MODEL_TIMEOUT_MS = 15000;
@@ -18,9 +33,15 @@ const MAX_MESSAGE_LENGTH = 4000;
 const MAX_HISTORY_ENTRIES = 12;
 const JSON_BODY_LIMIT = '32kb';
 
-const vertexModelBaseUrl = config.project
-  ? `https://${config.location}-aiplatform.googleapis.com/v1/projects/${config.project}/locations/${config.location}/publishers/google/models`
-  : `https://${config.location}-aiplatform.googleapis.com/v1/projects/_/locations/${config.location}/publishers/google/models`;
+function getVertexModelBaseUrl(project, location) {
+  if (!project) {
+    return null;
+  }
+
+  return `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models`;
+}
+
+const vertexModelBaseUrl = getVertexModelBaseUrl(config.project, config.location);
 
 const systemInstructionText = [
   'You are a non-partisan election education assistant.',
@@ -46,6 +67,7 @@ function getCredentialsDiagnostics(credentialsFilePath) {
       credentialsFileExists: false,
       credentialsIsFile: false,
       credentialsReadable: false,
+      credentialsIssue: null,
     };
   }
 
@@ -54,25 +76,57 @@ function getCredentialsDiagnostics(credentialsFilePath) {
     credentialsFileExists: false,
     credentialsIsFile: false,
     credentialsReadable: false,
+    credentialsIssue: null,
   };
 
   try {
     diagnostics.credentialsFileExists = fs.existsSync(credentialsFilePath);
 
-    if (diagnostics.credentialsFileExists) {
-      const stats = fs.statSync(credentialsFilePath);
-      diagnostics.credentialsIsFile = stats.isFile();
-
-      if (diagnostics.credentialsIsFile) {
-        fs.accessSync(credentialsFilePath, fs.constants.R_OK);
-        diagnostics.credentialsReadable = true;
-      }
+    if (!diagnostics.credentialsFileExists) {
+      diagnostics.credentialsIssue = 'Credential file does not exist at the provided path.';
+      return diagnostics;
     }
-  } catch (_error) {
+
+    const stats = fs.statSync(credentialsFilePath);
+    diagnostics.credentialsIsFile = stats.isFile();
+
+    if (!diagnostics.credentialsIsFile) {
+      diagnostics.credentialsIssue = 'Credential path exists but is not a file (it may be a directory).';
+      return diagnostics;
+    }
+
+    fs.accessSync(credentialsFilePath, fs.constants.R_OK);
+    diagnostics.credentialsReadable = true;
+  } catch (error) {
     diagnostics.credentialsReadable = false;
+    diagnostics.credentialsIssue = error instanceof Error ? error.message : 'Credential file is not readable.';
   }
 
   return diagnostics;
+}
+
+function getRuntimeState() {
+  const credentialsDiagnostics = getCredentialsDiagnostics(config.credentialsPath);
+  const vertexConfigured = Boolean(config.project && config.location && config.modelName);
+  const baseUrl = getVertexModelBaseUrl(config.project, config.location);
+
+  return {
+    vertexConfigured,
+    baseUrl,
+    credentialsDiagnostics,
+    localCredentialsMode: credentialsDiagnostics.credentialsPathSet,
+    usingExplicitCredentialsFile: credentialsDiagnostics.credentialsReadable,
+    usingAdcFallback: !credentialsDiagnostics.credentialsReadable,
+  };
+}
+
+function getDeveloperGuidance() {
+  return [
+    'Local Vertex AI setup requires GOOGLE_CLOUD_PROJECT.',
+    'Use GOOGLE_APPLICATION_CREDENTIALS with a readable service-account JSON file, or use Application Default Credentials (ADC).',
+    'GOOGLE_CLOUD_LOCATION defaults to us-central1.',
+    'GEMINI_MODEL defaults to gemini-2.5-flash.',
+  ].join(' ');
 }
 
 function getMockAssistantResponse(message) {
@@ -253,16 +307,20 @@ app.get('/healthz', (_req, res) => {
 });
 
 app.get('/readyz', (_req, res) => {
-  const credentialsDiagnostics = getCredentialsDiagnostics(config.credentialsPath);
+  const runtimeState = getRuntimeState();
 
   res.json({
     ok: true,
     mockAiMode: config.mockAiMode,
-    vertexConfigured: Boolean(config.project && config.location && config.modelName),
-    credentialsPathSet: credentialsDiagnostics.credentialsPathSet,
-    credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
-    credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
-    credentialsReadable: credentialsDiagnostics.credentialsReadable,
+    vertexConfigured: runtimeState.vertexConfigured,
+    baseUrl: runtimeState.baseUrl,
+    credentialsPathSet: runtimeState.credentialsDiagnostics.credentialsPathSet,
+    credentialsFileExists: runtimeState.credentialsDiagnostics.credentialsFileExists,
+    credentialsIsFile: runtimeState.credentialsDiagnostics.credentialsIsFile,
+    credentialsReadable: runtimeState.credentialsDiagnostics.credentialsReadable,
+    credentialsIssue: runtimeState.credentialsDiagnostics.credentialsIssue,
+    usingAdcFallback: runtimeState.usingAdcFallback,
+    isCloudRun,
   });
 });
 
@@ -301,15 +359,40 @@ app.post('/api/chat', async (req, res) => {
       return;
     }
 
-    if (!config.project) {
-      throw new Error('GOOGLE_CLOUD_PROJECT is not set.');
+    const runtimeState = getRuntimeState();
+
+    if (!runtimeState.vertexConfigured) {
+      logEvent('ERROR', 'chat.config_missing', {
+        requestId,
+        project: config.project,
+        location: config.location,
+        model: config.modelName,
+        mockAiMode: config.mockAiMode,
+        isCloudRun,
+        developerGuidance: getDeveloperGuidance(),
+      });
+
+      res.status(503).json(buildChatResponse('The AI backend is not configured yet. Set GOOGLE_CLOUD_PROJECT for local development and retry.', 'fallback'));
+      return;
     }
 
     if (!ai) {
       throw new Error('Gen AI client was not initialized.');
     }
 
-    const credentialsDiagnostics = getCredentialsDiagnostics(config.credentialsPath);
+    const credentialsDiagnostics = runtimeState.credentialsDiagnostics;
+    const shouldTryAdcFallback = !isCloudRun && credentialsDiagnostics.credentialsPathSet && !credentialsDiagnostics.credentialsReadable;
+
+    if (shouldTryAdcFallback) {
+      logEvent('WARNING', 'chat.invalid_credentials_path_fallback_to_adc', {
+        requestId,
+        project: config.project,
+        location: config.location,
+        model: config.modelName,
+        credentialsIssue: credentialsDiagnostics.credentialsIssue,
+        hasCredentialsPath: credentialsDiagnostics.credentialsPathSet,
+      });
+    }
 
     logEvent('INFO', 'chat.model_request_started', {
       requestId,
@@ -321,6 +404,8 @@ app.post('/api/chat', async (req, res) => {
       credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
       credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
       credentialsReadable: credentialsDiagnostics.credentialsReadable,
+      credentialsIssue: credentialsDiagnostics.credentialsIssue,
+      usingAdcFallback: shouldTryAdcFallback || runtimeState.usingAdcFallback,
     });
 
     const contents = [
@@ -331,23 +416,35 @@ app.post('/api/chat', async (req, res) => {
       },
     ];
 
-    const result = await withTimeout(
-      ai.models.generateContent({
-        model: config.modelName,
-        contents,
-        config: {
-          systemInstruction: {
-            role: 'system',
-            parts: [{ text: systemInstructionText }],
+    const previousCredentialsEnv = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (shouldTryAdcFallback) {
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    }
+
+    let result;
+    try {
+      result = await withTimeout(
+        ai.models.generateContent({
+          model: config.modelName,
+          contents,
+          config: {
+            systemInstruction: {
+              role: 'system',
+              parts: [{ text: systemInstructionText }],
+            },
+            temperature: 0.2,
+            topP: 0.9,
+            maxOutputTokens: 512,
           },
-          temperature: 0.2,
-          topP: 0.9,
-          maxOutputTokens: 512,
-        },
-      }),
-      MODEL_TIMEOUT_MS,
-      'Vertex AI request',
-    );
+        }),
+        MODEL_TIMEOUT_MS,
+        'Vertex AI request',
+      );
+    } finally {
+      if (shouldTryAdcFallback && typeof previousCredentialsEnv === 'string') {
+        process.env.GOOGLE_APPLICATION_CREDENTIALS = previousCredentialsEnv;
+      }
+    }
 
     const text =
       (typeof result?.text === 'string' ? result.text.trim() : '') ||
@@ -373,13 +470,20 @@ app.post('/api/chat', async (req, res) => {
     const rawError = error instanceof Error ? error.message : String(error);
     const timedOut = rawError.includes('timed out');
     const authHint = rawError.includes('default credentials')
-      ? 'ADC missing in container. Mount a service-account key and set GOOGLE_APPLICATION_CREDENTIALS, or use Cloud Run service account auth.'
+      ? 'Google credentials are missing. Set GOOGLE_APPLICATION_CREDENTIALS to a readable JSON file for local runs, or use ADC / Cloud Run service identity.'
       : undefined;
 
     const fallback = requestMessage
       ? getFallbackResponse(requestMessage)
       : "I'm having trouble reaching the election assistant right now. Please try again later, and remember to verify important information with your local election authority.";
-    const credentialsDiagnostics = getCredentialsDiagnostics(config.credentialsPath);
+    const runtimeState = getRuntimeState();
+    const credentialsDiagnostics = runtimeState.credentialsDiagnostics;
+
+    const frontendSafeMessage = !config.project
+      ? 'The AI backend is not configured yet. GOOGLE_CLOUD_PROJECT is required for local Vertex AI calls.'
+      : credentialsDiagnostics.credentialsPathSet && !credentialsDiagnostics.credentialsReadable
+        ? 'Local Google credentials are not configured correctly. Fix GOOGLE_APPLICATION_CREDENTIALS or use Application Default Credentials.'
+        : fallback;
 
     logEvent('ERROR', 'chat.model_request_failure', {
       requestId,
@@ -390,15 +494,17 @@ app.post('/api/chat', async (req, res) => {
       model: config.modelName,
       location: config.location,
       mockAiMode: config.mockAiMode,
-      baseUrl: vertexModelBaseUrl,
+      baseUrl: runtimeState.baseUrl,
       hasCredentialsPath: credentialsDiagnostics.credentialsPathSet,
       credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
       credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
       credentialsReadable: credentialsDiagnostics.credentialsReadable,
+      credentialsIssue: credentialsDiagnostics.credentialsIssue,
+      usingAdcFallback: runtimeState.usingAdcFallback,
       durationMs: Date.now() - startedAt,
     });
 
-    res.status(500).json(buildChatResponse(fallback, 'fallback'));
+    res.status(500).json(buildChatResponse(frontendSafeMessage, 'fallback'));
   }
 });
 
@@ -420,7 +526,8 @@ app.use((req, res) => {
 });
 
 app.listen(config.port, '0.0.0.0', () => {
-  const credentialsDiagnostics = getCredentialsDiagnostics(config.credentialsPath);
+  const runtimeState = getRuntimeState();
+  const credentialsDiagnostics = runtimeState.credentialsDiagnostics;
 
   logEvent('INFO', 'server.started', {
     port: config.port,
@@ -432,9 +539,22 @@ app.listen(config.port, '0.0.0.0', () => {
     credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
     credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
     credentialsReadable: credentialsDiagnostics.credentialsReadable,
+    credentialsIssue: credentialsDiagnostics.credentialsIssue,
     localCredentialsMode: Boolean(config.credentialsPath),
-    baseUrl: vertexModelBaseUrl,
+    usingAdcFallback: runtimeState.usingAdcFallback,
+    vertexConfigured: runtimeState.vertexConfigured,
+    isCloudRun,
+    baseUrl: runtimeState.baseUrl,
   });
+
+  if (!config.mockAiMode && !runtimeState.vertexConfigured) {
+    logEvent('WARNING', 'startup.vertex_config_incomplete', {
+      project: config.project,
+      location: config.location,
+      model: config.modelName,
+      developerGuidance: getDeveloperGuidance(),
+    });
+  }
 
   if (!config.mockAiMode && credentialsDiagnostics.credentialsPathSet && !credentialsDiagnostics.credentialsReadable) {
     logEvent('WARNING', 'credentials.path_unreadable', {
@@ -442,7 +562,15 @@ app.listen(config.port, '0.0.0.0', () => {
       credentialsFileExists: credentialsDiagnostics.credentialsFileExists,
       credentialsIsFile: credentialsDiagnostics.credentialsIsFile,
       credentialsReadable: credentialsDiagnostics.credentialsReadable,
+      credentialsIssue: credentialsDiagnostics.credentialsIssue,
       hint: 'Check Docker bind mount source path and ensure it points to a readable JSON file, not a directory.',
+    });
+  }
+
+  if (!config.mockAiMode && !isCloudRun && !credentialsDiagnostics.credentialsReadable) {
+    logEvent('WARNING', 'startup.local_auth_mode', {
+      usingAdcFallback: true,
+      hint: 'No readable GOOGLE_APPLICATION_CREDENTIALS file detected. The server will try Application Default Credentials (ADC) for local Vertex calls.',
     });
   }
 });

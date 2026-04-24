@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
-type SectionKey = 'timeline' | 'guide' | 'registration' | 'documents' | 'checklist' | 'faq' | 'glossary' | 'chat' | 'quiz' | 'guided';
+export type SectionKey = 'timeline' | 'guide' | 'registration' | 'documents' | 'checklist' | 'faq' | 'glossary' | 'chat' | 'quiz' | 'guided';
 
 interface ProgressContextType {
   completedSections: Record<SectionKey, boolean>;
   markCompleted: (section: SectionKey) => void;
+  hydrateProgress: (sections: Partial<Record<SectionKey, boolean>>) => void;
   progressPercentage: number;
 }
 
@@ -22,6 +23,7 @@ const defaultContext: ProgressContextType = {
     guided: false
   },
   markCompleted: () => {},
+  hydrateProgress: () => {},
   progressPercentage: 0,
 };
 
@@ -57,14 +59,22 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, []);
 
+  const hydrateProgress = useCallback((sections: Partial<Record<SectionKey, boolean>>) => {
+    setCompletedSections((prev) => ({
+      ...prev,
+      ...sections,
+    }));
+  }, []);
+
   const totalSections = Object.keys(completedSections).length;
   const completedCount = Object.values(completedSections).filter(Boolean).length;
   const progressPercentage = Math.round((completedCount / totalSections) * 100);
   const contextValue = useMemo(() => ({
     completedSections,
     markCompleted,
+    hydrateProgress,
     progressPercentage,
-  }), [completedSections, markCompleted, progressPercentage]);
+  }), [completedSections, markCompleted, hydrateProgress, progressPercentage]);
 
   return (
     <ProgressContext.Provider value={contextValue}>

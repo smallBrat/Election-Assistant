@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useProgress } from '../../context/ProgressContext';
 import { quizData } from '../../data/mockData';
 import { CheckCircle2, RotateCcw, Lightbulb } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { loadLatestQuizResult, saveQuizResult, type StoredQuizResult } from '../../services/firebaseUserData';
 
 interface QuizProps {
   questions?: typeof quizData;
@@ -9,17 +11,73 @@ interface QuizProps {
 
 export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
   const { markCompleted, completedSections } = useProgress();
+  const { user } = useAuth();
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [latestSavedResult, setLatestSavedResult] = useState<StoredQuizResult | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (isFinished) {
       markCompleted('quiz');
     }
   }, [isFinished, markCompleted]);
+
+  useEffect(() => {
+    if (!user) {
+      setLatestSavedResult(null);
+      setSaveStatus(null);
+      return;
+    }
+
+    let active = true;
+
+    const loadStoredQuizResult = async () => {
+      try {
+        const result = await loadLatestQuizResult(user.uid);
+        if (active) {
+          setLatestSavedResult(result);
+        }
+      } catch (error) {
+        console.error('Failed to load saved quiz result', error);
+        if (active) {
+          setSaveStatus('Unable to load your saved quiz result right now.');
+        }
+      }
+    };
+
+    void loadStoredQuizResult();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!isFinished || !user) {
+      return;
+    }
+
+    const saveCurrentQuizResult = async () => {
+      try {
+        await saveQuizResult(user.uid, score, questions.length);
+        setSaveStatus('Quiz result saved to your account.');
+        setLatestSavedResult({
+          score,
+          totalQuestions: questions.length,
+          completedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Failed to save quiz result', error);
+        setSaveStatus('Signed in, but unable to save this quiz result right now.');
+      }
+    };
+
+    void saveCurrentQuizResult();
+  }, [isFinished, user, score, questions.length]);
 
   const handleSelect = (idx: number) => {
     if (isAnswered) return;
@@ -67,6 +125,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
               <RotateCcw size={18} /> Try Again
             </button>
           </div>
+          {saveStatus && <p className="text-muted mt-4">{saveStatus}</p>}
         </div>
       </div>
     );
@@ -80,6 +139,11 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
         <div>
           <h2 style={{ margin: 0 }}>Self-Check Quiz</h2>
           <p className="text-secondary" style={{ marginTop: '0.75rem', fontSize: '1.15rem' }}>A quick, friendly way to test what you've learned.</p>
+          {latestSavedResult && (
+            <p className="text-muted">
+              Last saved score: {latestSavedResult.score}/{latestSavedResult.totalQuestions}
+            </p>
+          )}
         </div>
         {completedSections['quiz'] && (
           <div className="flex-center gap-2 text-success" style={{ background: 'var(--accent-success-bg)', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-full)' }}>

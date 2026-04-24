@@ -148,6 +148,54 @@ button {
   line-height: 1.6;
 }
 
+.app-utility-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-light);
+  background: #fff;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.app-utility-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.app-utility-text,
+.app-utility-subtext {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.app-utility-subtext {
+  color: var(--text-muted);
+}
+
+.app-utility-subtext--error {
+  color: var(--accent-primary);
+}
+
+.app-auth-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .app-utility-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-auth-button {
+    width: 100%;
+  }
+}
+
 .page-section {
   animation: fadeIn 0.4s ease-out;
   display: flex;

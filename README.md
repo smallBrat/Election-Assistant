@@ -55,6 +55,35 @@ The backend uses these runtime variables:
 
 Important: GOOGLE_APPLICATION_CREDENTIALS is for local Docker development only. Cloud Run should use service identity.
 
+### Local Vertex backend setup (npm run start)
+
+For local backend runs, copy `.env.example` to `.env` and set at least:
+
+- `GOOGLE_CLOUD_PROJECT`
+- Optional: `GOOGLE_APPLICATION_CREDENTIALS` (path to a readable service-account JSON file)
+
+If `GOOGLE_APPLICATION_CREDENTIALS` is missing or unreadable, the backend will attempt Application Default Credentials (ADC).
+Use `gcloud auth application-default login` to configure ADC locally.
+
+## Optional Firebase (Auth + Firestore)
+
+This app can run without Firebase configured. When Firebase client variables are present, the UI enables:
+
+- Google sign-in / sign-out (non-blocking, guest mode still works)
+- Firestore-backed progress sync for signed-in users
+- Firestore-backed quiz result history for signed-in users
+
+Copy `.env.example` to `.env.local` and set:
+
+- VITE_FIREBASE_API_KEY
+- VITE_FIREBASE_AUTH_DOMAIN
+- VITE_FIREBASE_PROJECT_ID
+- VITE_FIREBASE_STORAGE_BUCKET
+- VITE_FIREBASE_MESSAGING_SENDER_ID
+- VITE_FIREBASE_APP_ID
+
+These are Firebase client configuration values and are safe for frontend usage. Do not store admin/service-account keys in frontend env files.
+
 ## Local Docker Build
 
 ```powershell
