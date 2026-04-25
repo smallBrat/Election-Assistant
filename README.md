@@ -81,8 +81,95 @@ Copy `.env.example` to `.env.local` and set:
 - VITE_FIREBASE_STORAGE_BUCKET
 - VITE_FIREBASE_MESSAGING_SENDER_ID
 - VITE_FIREBASE_APP_ID
+- VITE_FIREBASE_MEASUREMENT_ID (optional, required to send Firebase Analytics events)
 
 These are Firebase client configuration values and are safe for frontend usage. Do not store admin/service-account keys in frontend env files.
+
+### Firestore data model used by this app
+
+Collections and documents:
+
+- users/{uid}
+  - displayName
+  - email
+  - createdAt
+  - updatedAt
+  - lastActiveAt
+- users/{uid}/progress/overview
+  - completedSections: string[]
+  - currentSection: string | null
+  - progressPercent: number
+  - lastVisitedScreen: string | null
+  - latestScore: number | null
+  - bestScore: number | null
+  - lastQuizAttemptAt
+  - updatedAt
+- users/{uid}/quizAttempts/{attemptId}
+  - quizId
+  - score
+  - totalQuestions
+  - answersSummary
+  - completedAt
+  - createdAt
+- users/{uid}/preferences/settings
+  - theme
+  - learningMode
+  - updatedAt
+
+Why this shape:
+
+- progress overview is a single document for fast reads at app startup
+- quiz attempts are append-only so history is preserved
+- preferences are isolated so updates do not overwrite progress
+
+### Enable Firestore in Firebase Console
+
+1. Open Firebase Console and select your project.
+2. Go to Build > Firestore Database.
+3. Click Create database.
+4. Start in production mode.
+5. Choose the closest region to your users.
+
+### Apply Firestore security rules
+
+1. Open Firestore Database > Rules.
+2. Copy the contents of firestore.rules from this repo.
+3. Publish rules.
+
+Rules guarantee users can only read and write their own documents under users/{uid}.
+
+### Firestore indexes
+
+No custom composite index is required for current queries. The app uses a single-field orderBy on createdAt in quizAttempts.
+
+### Firestore integration behavior
+
+- Signed-in users:
+  - user profile document is ensured on sign-in
+  - progress and preferences are loaded on startup
+  - last visited section can be restored automatically
+  - quiz attempts are saved and recent attempts are loaded
+- Guest users:
+  - app keeps working with local state
+  - Firestore reads and writes are skipped
+
+### Test locally and on deployed app
+
+Local test:
+
+1. Set VITE_FIREBASE_* in .env.local.
+2. Run npm run dev.
+3. Sign in with Google.
+4. Complete a few sections and one quiz.
+5. Refresh page and verify progress and quiz history are restored.
+
+Deployed test:
+
+1. Build with Cloud Build substitutions for VITE_FIREBASE_*.
+2. Deploy Cloud Run as usual.
+3. Sign in on deployed UI and repeat progress + quiz checks.
+
+Important: Firebase Auth and Firestore must belong to the same Firebase project.
 
 ### Build-time vs runtime environment separation
 
@@ -239,14 +326,16 @@ gcloud services enable run.googleapis.com `
 ### Build and Push Image (Cloud Build)
 
 ```powershell
-gcloud builds submit --tag gcr.io/promptwars-493915/election-assistant:latest
+gcloud builds submit --config cloudbuild.yaml `
+  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
-With Firebase build substitutions:
+If your Cloud Run service already has a stale `GOOGLE_APPLICATION_CREDENTIALS` environment variable, remove it once:
 
 ```powershell
-gcloud builds submit --config cloudbuild.yaml `
-  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID
+gcloud run services update election-assistant `
+  --region us-central1 `
+  --remove-env-vars GOOGLE_APPLICATION_CREDENTIALS
 ```
 
 ### Deploy to Cloud Run

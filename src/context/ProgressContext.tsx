@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { trackSectionCompleted } from '../services/analytics';
 
 export type SectionKey = 'timeline' | 'guide' | 'registration' | 'documents' | 'checklist' | 'faq' | 'glossary' | 'chat' | 'quiz' | 'guided';
 
@@ -52,10 +53,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return prev;
       }
 
-      return {
+      const next = {
         ...prev,
         [section]: true,
       };
+
+      const totalSections = Object.keys(next).length;
+      const completedCount = Object.values(next).filter(Boolean).length;
+      const progressPercent = Math.round((completedCount / totalSections) * 100);
+      void trackSectionCompleted(section, progressPercent);
+
+      return next;
     });
   }, []);
 

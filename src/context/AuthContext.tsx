@@ -7,6 +7,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '../firebaseClient';
+import { trackSignIn } from '../services/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -66,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      void trackSignIn();
     } catch (error) {
       console.error('Google sign-in failed', error);
       setAuthError('Sign-in failed. Please try again.');

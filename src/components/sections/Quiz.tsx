@@ -3,7 +3,12 @@ import { useProgress } from '../../context/ProgressContext';
 import { quizData } from '../../data/mockData';
 import { CheckCircle2, RotateCcw, Lightbulb } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { loadLatestQuizResult, saveQuizResult, type StoredQuizResult } from '../../services/firebaseUserData';
+import { trackQuizSubmitted } from '../../services/analytics';
+import {
+  getRecentQuizAttempts,
+  saveQuizAttempt,
+  type QuizAttemptRecord,
+} from '../../services/firebaseUserData';
 
 interface QuizProps {
   questions?: typeof quizData;
@@ -17,7 +22,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
-  const [latestSavedResult, setLatestSavedResult] = useState<StoredQuizResult | null>(null);
+  const [recentAttempts, setRecentAttempts] = useState<QuizAttemptRecord[]>([]);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,7 +33,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
 
   useEffect(() => {
     if (!user) {
-      setLatestSavedResult(null);
+      setRecentAttempts([]);
       setSaveStatus(null);
       return;
     }
@@ -37,9 +42,9 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
 
     const loadStoredQuizResult = async () => {
       try {
-        const result = await loadLatestQuizResult(user.uid);
+        const attempts = await getRecentQuizAttempts(user.uid, 3);
         if (active) {
-          setLatestSavedResult(result);
+          setRecentAttempts(attempts);
         }
       } catch (error) {
         console.error('Failed to load saved quiz result', error);
@@ -63,13 +68,20 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
 
     const saveCurrentQuizResult = async () => {
       try {
-        await saveQuizResult(user.uid, score, questions.length);
-        setSaveStatus('Quiz result saved to your account.');
-        setLatestSavedResult({
+        await saveQuizAttempt(user.uid, {
+          quizId: 'self-check',
           score,
           totalQuestions: questions.length,
-          completedAt: new Date().toISOString(),
+          answersSummary: {
+            correct: score,
+            incorrect: Math.max(questions.length - score, 0),
+            unanswered: 0,
+          },
         });
+
+        const attempts = await getRecentQuizAttempts(user.uid, 3);
+        setRecentAttempts(attempts);
+        setSaveStatus('Quiz result saved to your account.');
       } catch (error) {
         console.error('Failed to save quiz result', error);
         setSaveStatus('Signed in, but unable to save this quiz result right now.');
@@ -94,6 +106,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
+      void trackQuizSubmitted(score, questions.length);
       setIsFinished(true);
     }
   };
@@ -132,6 +145,10 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
   }
 
   const question = questions[currentQ];
+  const latestSavedResult = recentAttempts[0] ?? null;
+  const bestSavedScore = recentAttempts.length
+    ? Math.max(...recentAttempts.map((attempt) => attempt.score))
+    : null;
 
   return (
     <div className="page-section" style={{ maxWidth: '850px', margin: '0 auto' }}>
@@ -143,6 +160,12 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
             <p className="text-muted">
               Last saved score: {latestSavedResult.score}/{latestSavedResult.totalQuestions}
             </p>
+          )}
+          {bestSavedScore !== null && (
+            <p className="text-muted">Best saved score: {bestSavedScore}/{questions.length}</p>
+          )}
+          {!user && (
+            <p className="text-muted">You are in guest mode. Sign in to sync quiz attempts across devices.</p>
           )}
         </div>
         {completedSections['quiz'] && (
@@ -230,6 +253,18 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
           </div>
         )}
       </div>
+
+      {recentAttempts.length > 0 && (
+        <div className="panel" style={{ marginTop: '1.5rem', padding: '1.25rem 1.5rem' }}>
+          <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--heading-slate)' }}>Recent attempts</h4>
+          {recentAttempts.map((attempt) => (
+            <p key={attempt.id} className="text-muted" style={{ margin: '0.35rem 0' }}>
+              {attempt.score}/{attempt.totalQuestions}
+              {attempt.completedAt ? ` • ${new Date(attempt.completedAt).toLocaleString()}` : ''}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -48,6 +48,21 @@ Invoke-RestMethod -Uri http://localhost:8080/api/chat -Method POST -ContentType 
 
 Preferred deployment path uses the built container image and Cloud Run service identity for Vertex auth.
 
+Build and deploy via Cloud Build so Vite receives Firebase config during image build:
+
+```powershell
+gcloud builds submit --config cloudbuild.yaml `
+  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+```
+
+If you previously set `GOOGLE_APPLICATION_CREDENTIALS` on the Cloud Run service, remove it once:
+
+```powershell
+gcloud run services update election-assistant `
+  --region us-central1 `
+  --remove-env-vars GOOGLE_APPLICATION_CREDENTIALS
+```
+
 ```powershell
 gcloud run deploy election-assistant `
   --image gcr.io/promptwars-493915/election-assistant:latest `
