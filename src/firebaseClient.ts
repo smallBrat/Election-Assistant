@@ -2,6 +2,7 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,16 +14,37 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-export const isFirebaseConfigured = Boolean(
-  firebaseConfig.apiKey &&
-  firebaseConfig.authDomain &&
-  firebaseConfig.projectId &&
-  firebaseConfig.appId,
-);
+const REQUIRED_FIREBASE_CONFIG_KEYS = [
+  'apiKey',
+  'authDomain',
+  'projectId',
+  'storageBucket',
+  'messagingSenderId',
+  'appId',
+] as const;
+
+type RequiredFirebaseConfigKey = typeof REQUIRED_FIREBASE_CONFIG_KEYS[number];
+
+function getMissingFirebaseConfigKeys(): RequiredFirebaseConfigKey[] {
+  return REQUIRED_FIREBASE_CONFIG_KEYS.filter((key) => !firebaseConfig[key]);
+}
+
+export function getFirebaseConfigStatus() {
+  const missingKeys = getMissingFirebaseConfigKeys();
+
+  return {
+    configured: missingKeys.length === 0,
+    missingKeys,
+    hasAnalyticsMeasurementId: Boolean(firebaseConfig.measurementId),
+  };
+}
+
+export const isFirebaseConfigured = getFirebaseConfigStatus().configured;
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 let analytics: Analytics | null = null;
 let analyticsPromise: Promise<Analytics | null> | null = null;
 
@@ -30,8 +52,10 @@ if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
 } else if (import.meta.env.DEV) {
-  console.info('Firebase client is not configured. Auth and Firestore features are disabled until VITE_FIREBASE_* vars are set.');
+  const { missingKeys } = getFirebaseConfigStatus();
+  console.info(`Firebase client is not configured. Missing build-time env keys: ${missingKeys.join(', ')}.`);
 }
 
 function shouldInitializeAnalytics(): boolean {
@@ -72,4 +96,4 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   return analyticsPromise;
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };

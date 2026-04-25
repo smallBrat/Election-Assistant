@@ -52,7 +52,7 @@ Build and deploy via Cloud Build so Vite receives Firebase config during image b
 
 ```powershell
 gcloud builds submit --config cloudbuild.yaml `
-  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+  --substitutions "_SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX"
 ```
 
 If you previously set `GOOGLE_APPLICATION_CREDENTIALS` on the Cloud Run service, remove it once:
@@ -71,6 +71,21 @@ gcloud run deploy election-assistant `
   --allow-unauthenticated `
   --set-env-vars GOOGLE_CLOUD_PROJECT=promptwars-493915,GOOGLE_CLOUD_LOCATION=us-central1,GEMINI_MODEL=gemini-2.5-flash,MOCK_AI=false
 ```
+
+## Firebase Storage setup
+
+- No new env vars are required for Storage beyond the existing Firebase web config.
+- `storageBucket` must be present in the Vite build substitutions so the client can initialize Firebase Storage.
+- Enable Firebase Storage in Firebase Console under Build > Storage.
+- Publish the contents of `storage.rules` in Firebase Console under Storage > Rules.
+
+Manual test after deployment:
+
+1. Sign in with Google.
+2. Upload a small image, PDF, text, or JSON file from the Storage panel.
+3. Confirm the file appears under `users/{uid}/uploads/...` in Firebase Console.
+4. Download the file and confirm the browser opens or downloads it.
+5. Delete the file and confirm it disappears from the app and from Firebase Console.
 
 ## Cloud Run identity and IAM
 

@@ -1,5 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { trackSectionCompleted } from '../services/analytics';
+import { calculateProgressPercentage } from '../utils/helpers';
 
 export type SectionKey = 'timeline' | 'guide' | 'registration' | 'documents' | 'checklist' | 'faq' | 'glossary' | 'chat' | 'quiz' | 'guided';
 
@@ -10,6 +12,7 @@ interface ProgressContextType {
   progressPercentage: number;
 }
 
+// Context default value
 const defaultContext: ProgressContextType = {
   completedSections: {
     timeline: false,
@@ -36,7 +39,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {
+      } catch {
         console.error("Failed to parse saved progress");
       }
     }
@@ -60,7 +63,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const totalSections = Object.keys(next).length;
       const completedCount = Object.values(next).filter(Boolean).length;
-      const progressPercent = Math.round((completedCount / totalSections) * 100);
+      const progressPercent = calculateProgressPercentage(completedCount, totalSections);
       void trackSectionCompleted(section, progressPercent);
 
       return next;

@@ -12,6 +12,7 @@ import {
   saveUserProgress,
 } from './services/firebaseUserData'
 import type { SectionKey as ProgressSectionKey } from './context/ProgressContext'
+import { PROGRESS_SAVE_DEBOUNCE_MS, VALID_SECTION_KEYS } from './constants/app'
 
 // Import all sections
 import { Home } from './components/sections/Home'
@@ -25,8 +26,31 @@ import { FAQ } from './components/sections/FAQ'
 import { Glossary } from './components/sections/Glossary'
 import { ChatAssistant } from './components/sections/ChatAssistant'
 import { Quiz } from './components/sections/Quiz'
+import { UserStoragePanel } from './components/UserStoragePanel'
 
 const disclaimerText = 'Election rules, deadlines, and required documents vary by country and region. Verify official information with your local election authority.';
+
+const progressSectionKeys: ProgressSectionKey[] = (VALID_SECTION_KEYS as readonly string[]).filter(
+  (key): key is ProgressSectionKey => key !== 'home'
+) as ProgressSectionKey[];
+
+const navigationSections: SectionKey[] = [
+  'home',
+  'guided',
+  'timeline',
+  'guide',
+  'registration',
+  'documents',
+  'checklist',
+  'faq',
+  'glossary',
+  'chat',
+  'quiz',
+];
+
+function isNavigationSection(value: string): value is SectionKey {
+  return navigationSections.includes(value as SectionKey);
+}
 
 function App() {
   const [currentSection, setCurrentSection] = useState<SectionKey>('home');
@@ -39,37 +63,7 @@ function App() {
   const progressSaveTimerRef = useRef<number | null>(null);
   const { user, loading: authLoading, isFirebaseEnabled, authError, signInWithGoogle, signOutUser } = useAuth();
   const { completedSections, progressPercentage, hydrateProgress } = useProgress();
-
-  const progressSectionKeys: ProgressSectionKey[] = [
-    'timeline',
-    'guide',
-    'registration',
-    'documents',
-    'checklist',
-    'faq',
-    'glossary',
-    'chat',
-    'quiz',
-    'guided',
-  ];
-
-  const navigationSections: SectionKey[] = [
-    'home',
-    'guided',
-    'timeline',
-    'guide',
-    'registration',
-    'documents',
-    'checklist',
-    'faq',
-    'glossary',
-    'chat',
-    'quiz',
-  ];
-
-  const isNavigationSection = (value: string): value is SectionKey => {
-    return navigationSections.includes(value as SectionKey);
-  };
+  const visibleProgressSyncMessage = user ? progressSyncMessage : null;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -97,7 +91,6 @@ function App() {
     hasHydratedRemoteProgress.current = false;
 
     if (!user) {
-      setProgressSyncMessage(null);
       return;
     }
 
@@ -177,7 +170,7 @@ function App() {
         console.error('Failed to save progress to Firestore', error);
         setProgressSyncMessage('Signed in, but progress sync is temporarily unavailable.');
       }
-    }, 700);
+    }, PROGRESS_SAVE_DEBOUNCE_MS);
 
     return () => {
       if (progressSaveTimerRef.current !== null) {
@@ -238,7 +231,7 @@ function App() {
               <p className="app-utility-text">Continue as guest, or sign in to save progress and quiz history.</p>
             )}
 
-            {progressSyncMessage && <p className="app-utility-subtext">{progressSyncMessage}</p>}
+            {visibleProgressSyncMessage && <p className="app-utility-subtext">{visibleProgressSyncMessage}</p>}
             {authError && <p className="app-utility-subtext app-utility-subtext--error">{authError}</p>}
             {!isFirebaseEnabled && <p className="app-utility-subtext">Firebase is not configured yet. Add VITE_FIREBASE_* variables to enable sign-in and cloud sync.</p>}
           </div>
@@ -257,6 +250,8 @@ function App() {
             </button>
           )}
         </div>
+
+        {user && <UserStoragePanel />}
 
         {isMobile && (
           <header className="flex-between mb-8" id="mobile-header">

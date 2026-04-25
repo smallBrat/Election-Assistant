@@ -42,16 +42,142 @@
     z-index: 1;
     top: 34px;
     height: 28px;
+
+  .storage-panel {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .storage-panel__header,
+  .storage-panel__list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .storage-panel__title,
+  .storage-panel__subtitle {
+    margin-bottom: 0.35rem;
+  }
+
+  .storage-panel__text,
+  .storage-panel__status,
+  .storage-panel__error,
+  .storage-panel__count,
+  .storage-panel__file-details {
+    margin: 0;
+    font-size: 0.92rem;
+  }
+
+  .storage-panel__text,
+  .storage-panel__count,
+  .storage-panel__file-details {
+    color: var(--text-muted);
+  }
+
+  .storage-panel__error {
+    color: var(--accent-primary);
+  }
+
+  .storage-panel__upload-row,
+  .storage-panel__actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .storage-panel__file-label {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--heading-slate);
+  }
+
+  .storage-panel input[type='file'] {
+    max-width: 100%;
+  }
+
+  .storage-panel__progress {
+    width: 100%;
+    border-radius: var(--radius-full);
+    height: 0.75rem;
+    overflow: hidden;
+    accent-color: var(--accent-secondary);
+  }
+
+  .storage-panel__spinner {
+    animation: storage-spin 1s linear infinite;
+  }
+
+  .storage-panel__file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .storage-panel__file-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: #fff;
+  }
+
+  .storage-panel__file-meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .storage-panel__file-name {
+    color: var(--heading-slate);
+    word-break: break-word;
+  }
+
+  .storage-panel__action {
+    padding-inline: 1rem;
+  }
+
+  @keyframes storage-spin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
     transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
       scale(1.4);
   }
 
   .vite {
     z-index: 0;
+
+    .storage-panel__header,
+    .storage-panel__list-header,
+    .storage-panel__file-item {
+      flex-direction: column;
+      align-items: stretch;
+    }
     top: 107px;
     height: 26px;
     width: auto;
     transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+
+    .storage-panel__action {
+      width: 100%;
+    }
       scale(0.8);
   }
 }

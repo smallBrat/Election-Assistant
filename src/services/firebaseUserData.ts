@@ -14,6 +14,20 @@ import {
 import { db } from '../firebaseClient';
 import type { SectionKey } from '../context/ProgressContext';
 import type { User } from 'firebase/auth';
+import {
+  ensureValidUid,
+  toIsoString,
+  normalizeCompletedSections,
+  normalizeStringField,
+  normalizeNumberField,
+  calculateProgressPercentage,
+} from '../utils/helpers';
+import {
+  FIRESTORE_PROGRESS_DOC_ID,
+  FIRESTORE_PREFERENCES_DOC_ID,
+  FIRESTORE_QUIZ_COLLECTION_ID,
+  VALID_SECTION_KEYS,
+} from '../constants/app';
 
 export type UserProgressRecord = Partial<Record<SectionKey, boolean>>;
 
@@ -60,62 +74,36 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   learningMode: 'guided',
 };
 
-const PROGRESS_DOC_ID = 'overview';
-const PREFERENCES_DOC_ID = 'settings';
+// ============================================================================
+// Firestore Path Helpers - centralized for easy refactoring
+// ============================================================================
 
-const VALID_SECTION_KEYS: SectionKey[] = [
-  'timeline',
-  'guide',
-  'registration',
-  'documents',
-  'checklist',
-  'faq',
-  'glossary',
-  'chat',
-  'quiz',
-  'guided',
-];
-
-function ensureUid(uid: string): void {
-  if (!uid || typeof uid !== 'string') {
-    throw new Error('A valid user id is required for Firestore operations.');
-  }
-}
-
-function toIsoIfTimestamp(value: unknown): string | undefined {
-  if (!value || typeof value !== 'object') {
-    return undefined;
-  }
-
-  if ('toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate().toISOString();
-  }
-
-  return undefined;
-}
-
-function normalizeCompletedSections(value: unknown): SectionKey[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((item): item is SectionKey => VALID_SECTION_KEYS.includes(item as SectionKey));
-}
-
+/**
+ * Get reference to a user's progress document
+ */
 function progressDocRef(uid: string) {
-  return doc(db!, 'users', uid, 'progress', PROGRESS_DOC_ID);
+  return doc(db!, 'users', uid, 'progress', FIRESTORE_PROGRESS_DOC_ID);
 }
 
+/**
+ * Get reference to a user document
+ */
 function userDocRef(uid: string) {
   return doc(db!, 'users', uid);
 }
 
+/**
+ * Get reference to a user's preferences document
+ */
 function preferencesDocRef(uid: string) {
-  return doc(db!, 'users', uid, 'preferences', PREFERENCES_DOC_ID);
+  return doc(db!, 'users', uid, 'preferences', FIRESTORE_PREFERENCES_DOC_ID);
 }
 
+/**
+ * Get reference to a user's quiz attempts collection
+ */
 function quizAttemptsCollection(uid: string) {
-  return collection(db!, 'users', uid, 'quizAttempts');
+  return collection(db!, 'users', uid, FIRESTORE_QUIZ_COLLECTION_ID);
 }
 
 export async function ensureUserDocument(user: Pick<User, 'uid' | 'displayName' | 'email'>): Promise<void> {
@@ -123,7 +111,7 @@ export async function ensureUserDocument(user: Pick<User, 'uid' | 'displayName' 
     return;
   }
 
-  ensureUid(user.uid);
+  ensureValidUid(user.uid);
 
   const userRef = userDocRef(user.uid);
   const existing = await getDoc(userRef);
@@ -152,7 +140,7 @@ export async function getUserProgress(uid: string): Promise<UserProgressOverview
     return null;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const snapshot = await getDoc(progressDocRef(uid));
   if (!snapshot.exists()) {
@@ -161,21 +149,14 @@ export async function getUserProgress(uid: string): Promise<UserProgressOverview
 
   const data = snapshot.data();
 
-  const completedSections = normalizeCompletedSections(data.completedSections);
-  const currentSection = typeof data.currentSection === 'string' ? data.currentSection : null;
-  const progressPercent = typeof data.progressPercent === 'number' ? data.progressPercent : 0;
-  const lastVisitedScreen = typeof data.lastVisitedScreen === 'string' ? data.lastVisitedScreen : null;
-  const latestScore = typeof data.latestScore === 'number' ? data.latestScore : null;
-  const bestScore = typeof data.bestScore === 'number' ? data.bestScore : null;
-
   return {
-    completedSections,
-    currentSection,
-    progressPercent,
-    lastVisitedScreen,
-    latestScore,
-    bestScore,
-    lastQuizAttemptAt: toIsoIfTimestamp(data.lastQuizAttemptAt),
+    completedSections: normalizeCompletedSections(data.completedSections),
+    currentSection: normalizeStringField(data.currentSection),
+    progressPercent: normalizeNumberField(data.progressPercent, 0) ?? 0,
+    lastVisitedScreen: normalizeStringField(data.lastVisitedScreen),
+    latestScore: normalizeNumberField(data.latestScore, null),
+    bestScore: normalizeNumberField(data.bestScore, null),
+    lastQuizAttemptAt: toIsoString(data.lastQuizAttemptAt),
   };
 }
 
@@ -192,7 +173,7 @@ export async function saveUserProgress(
     return;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const completedSections = Array.from(new Set(progressPayload.completedSections))
     .filter((section): section is SectionKey => VALID_SECTION_KEYS.includes(section));
@@ -224,14 +205,14 @@ export async function markSectionCompleted(uid: string, sectionId: SectionKey): 
     return;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const existing = await getUserProgress(uid);
   const completedSet = new Set(existing?.completedSections ?? []);
   completedSet.add(sectionId);
 
   const completedSections = Array.from(completedSet);
-  const progressPercent = Math.round((completedSections.length / VALID_SECTION_KEYS.length) * 100);
+  const progressPercent = calculateProgressPercentage(completedSections.length, VALID_SECTION_KEYS.length);
 
   await saveUserProgress(uid, {
     completedSections,
@@ -246,7 +227,7 @@ export async function saveQuizAttempt(uid: string, attemptPayload: QuizAttemptPa
     return;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const payload = {
     quizId: attemptPayload.quizId,
@@ -289,7 +270,7 @@ export async function getRecentQuizAttempts(uid: string, maxCount = 5): Promise<
     return [];
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const attemptsQuery = query(
     quizAttemptsCollection(uid),
@@ -303,14 +284,12 @@ export async function getRecentQuizAttempts(uid: string, maxCount = 5): Promise<
     const data = docSnapshot.data();
     return {
       id: docSnapshot.id,
-      quizId: typeof data.quizId === 'string' ? data.quizId : 'self-check',
-      score: typeof data.score === 'number' ? data.score : 0,
-      totalQuestions: typeof data.totalQuestions === 'number' ? data.totalQuestions : 0,
+      quizId: normalizeStringField(data.quizId, 'self-check') as string,
+      score: normalizeNumberField(data.score, 0) ?? 0,
+      totalQuestions: normalizeNumberField(data.totalQuestions, 0) ?? 0,
       answersSummary: typeof data.answersSummary === 'object' && data.answersSummary ? data.answersSummary : undefined,
       completedAt:
-        typeof data.completedAt === 'string'
-          ? data.completedAt
-          : toIsoIfTimestamp(data.createdAt),
+        normalizeStringField(data.completedAt) ?? toIsoString(data.createdAt),
     };
   });
 }
@@ -320,7 +299,7 @@ export async function saveUserPreferences(uid: string, preferencesPayload: Parti
     return;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   await setDoc(
     preferencesDocRef(uid),
@@ -338,7 +317,7 @@ export async function getUserPreferences(uid: string): Promise<UserPreferences |
     return null;
   }
 
-  ensureUid(uid);
+  ensureValidUid(uid);
 
   const snapshot = await getDoc(preferencesDocRef(uid));
   if (!snapshot.exists()) {
@@ -347,8 +326,8 @@ export async function getUserPreferences(uid: string): Promise<UserPreferences |
 
   const data = snapshot.data();
   return {
-    theme: typeof data.theme === 'string' ? data.theme : DEFAULT_PREFERENCES.theme,
-    learningMode: typeof data.learningMode === 'string' ? data.learningMode : DEFAULT_PREFERENCES.learningMode,
+    theme: normalizeStringField(data.theme, DEFAULT_PREFERENCES.theme) as string,
+    learningMode: normalizeStringField(data.learningMode, DEFAULT_PREFERENCES.learningMode) as string,
   };
 }
 

@@ -72,6 +72,7 @@ This app can run without Firebase configured. When Firebase client variables are
 - Google sign-in / sign-out (non-blocking, guest mode still works)
 - Firestore-backed progress sync for signed-in users
 - Firestore-backed quiz result history for signed-in users
+- Firebase Storage-backed private file uploads for signed-in users
 
 Copy `.env.example` to `.env.local` and set:
 
@@ -82,6 +83,8 @@ Copy `.env.example` to `.env.local` and set:
 - VITE_FIREBASE_MESSAGING_SENDER_ID
 - VITE_FIREBASE_APP_ID
 - VITE_FIREBASE_MEASUREMENT_ID (optional, required to send Firebase Analytics events)
+
+No new env vars are required for Storage beyond the existing Firebase web config. `storageBucket` is already part of the required client config.
 
 These are Firebase client configuration values and are safe for frontend usage. Do not store admin/service-account keys in frontend env files.
 
@@ -138,6 +141,21 @@ Why this shape:
 
 Rules guarantee users can only read and write their own documents under users/{uid}.
 
+### Enable Firebase Storage
+
+1. Open Firebase Console and select your project.
+2. Go to Build > Storage.
+3. Click Get started if Storage is not already enabled.
+4. Choose the same region you use for the rest of the app.
+
+### Apply Firebase Storage security rules
+
+1. Open Firebase Console > Storage > Rules.
+2. Copy the contents of `storage.rules` from this repo.
+3. Publish the rules.
+
+The app stores user files under `users/{uid}/uploads/...` and the rules only allow the signed-in owner to read, write, or delete those files.
+
 ### Firestore indexes
 
 No custom composite index is required for current queries. The app uses a single-field orderBy on createdAt in quizAttempts.
@@ -152,6 +170,7 @@ No custom composite index is required for current queries. The app uses a single
 - Guest users:
   - app keeps working with local state
   - Firestore reads and writes are skipped
+  - Storage upload controls remain hidden
 
 ### Test locally and on deployed app
 
@@ -162,6 +181,16 @@ Local test:
 3. Sign in with Google.
 4. Complete a few sections and one quiz.
 5. Refresh page and verify progress and quiz history are restored.
+6. Upload a file in the Storage panel, then download and delete it.
+
+Storage test:
+
+1. Sign in.
+2. Choose a small image, PDF, text, or JSON file.
+3. Upload it from the Storage panel.
+4. Confirm it appears in the file list.
+5. Download it and verify the downloaded file opens.
+6. Delete it and confirm it disappears from the list and Firebase Console.
 
 Deployed test:
 
@@ -327,7 +356,7 @@ gcloud services enable run.googleapis.com `
 
 ```powershell
 gcloud builds submit --config cloudbuild.yaml `
-  --substitutions _SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+  --substitutions "_SERVICE_NAME=election-assistant,_REGION=us-central1,_VITE_FIREBASE_API_KEY=YOUR_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT.firebasestorage.app,_VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,_VITE_FIREBASE_APP_ID=YOUR_APP_ID,_VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX"
 ```
 
 If your Cloud Run service already has a stale `GOOGLE_APPLICATION_CREDENTIALS` environment variable, remove it once:

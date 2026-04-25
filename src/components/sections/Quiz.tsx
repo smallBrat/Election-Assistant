@@ -33,6 +33,7 @@ export const Quiz: React.FC<QuizProps> = ({ questions = quizData }) => {
 
   useEffect(() => {
     if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRecentAttempts([]);
       setSaveStatus(null);
       return;
